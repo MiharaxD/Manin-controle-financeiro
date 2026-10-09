@@ -1,15 +1,11 @@
 # Próximos passos
 
-## Agora
+## Externo
 
-Nenhuma tarefa local obrigatória pendente.
+- [ ] Configurar cliente OAuth público do Google Cloud/Drive API e validar autorização, envio e restauração com uma conta real.
+- [ ] Publicar `out/` em HTTPS e validar instalação/armazenamento/teclado/offline no Safari de um iPhone físico.
+- [ ] Se houver dados antigos no Supabase, exportar JSON antes de desligar a integração e conferir a restauração local. A migração não altera o banco remoto.
 
 ## Depois
 
-- [ ] Validar instalação e teclado no Safari de um iPhone físico.
-- [ ] Atualizar TypeScript/ESLint em conjunto quando os plugins forem compatíveis com as novas versões principais.
-
-## Bloqueado
-
-- [ ] Aplicar migrations e configurar Auth no projeto Supabase (credenciais não fornecidas).
-- [ ] Publicar na Vercel e validar autenticação entre dois dispositivos.
+- [ ] Atualizar TypeScript/ESLint em conjunto quando os plugins suportarem novas versões principais.

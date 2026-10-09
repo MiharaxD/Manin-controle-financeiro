@@ -6,7 +6,6 @@ import {
   moneyInput,
   parseMoney,
   splitInstallments,
-  suggestCategory,
 } from "@/lib/finance";
 import { mutationSchema } from "@/lib/schemas";
 import type {
@@ -41,12 +40,12 @@ export function TransactionForm({
   snapshot: s,
   editor,
   save,
-  demo,
+  suggest,
 }: {
   snapshot: Snapshot;
   editor: Extract<Editor, { type: "transaction" }>;
   save: Save;
-  demo: boolean;
+  suggest: (merchant: string, fallback: string) => Promise<string>;
 }) {
   const original = editor.value,
     recurrence = editor.recurrence;
@@ -93,26 +92,18 @@ export function TransactionForm({
     if (!merchant.trim() || manualCategory) return;
     const controller = new AbortController();
     const timer = setTimeout(async () => {
-      if (demo)
-        setCategory((c) => suggestCategory(merchant, s.transactions, c));
-      else
-        try {
-          const response = await fetch(
-            `/api/suggest?merchant=${encodeURIComponent(merchant)}`,
-            { signal: controller.signal, cache: "no-store" },
-          );
-          const result = await response.json();
-          if (!controller.signal.aborted && result.category_id)
-            setCategory(result.category_id);
-        } catch {
-          /* A suggestion never blocks a transaction. */
-        }
+      try {
+        const category = await suggest(merchant, "");
+        if (!controller.signal.aborted && category) setCategory(category);
+      } catch {
+        /* A suggestion never blocks a transaction. */
+      }
     }, 350);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [merchant, manualCategory, demo, s.transactions]);
+  }, [merchant, manualCategory, suggest, s.transactions]);
   const reconcile = (id: string) => {
     setSelectedRecurrence(id);
     const r = s.recurrences.find((r) => r.id === id);

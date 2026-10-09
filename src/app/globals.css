@@ -1366,6 +1366,7 @@ td:first-child {
   background: #ffffff25;
 }
 .dialog-copy {
+  overflow-wrap: anywhere;
   color: var(--muted);
   font-size: 0.875rem;
   line-height: 1.7;
@@ -1535,6 +1536,44 @@ input[type="color"] {
 .settings-content {
   display: grid;
   gap: 24px;
+}
+.backup-section {
+  min-width: 0;
+}
+.backup-section p,
+.backup-section li,
+.backup-account strong {
+  overflow-wrap: anywhere;
+}
+.backup-section ol {
+  padding-left: 22px;
+  font-size: 0.8125rem;
+  margin: 12px 0;
+}
+.backup-section li {
+  margin: 8px 0;
+}
+.backup-section input[type="file"] {
+  font-size: 0.8125rem;
+}
+.backup-section label {
+  margin: 14px 0;
+}
+.backup-account {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.8125rem;
+}
+.backup-account strong {
+  min-width: 0;
+}
+.backup-actions {
+  justify-content: flex-start;
+}
+.local-banner {
+  align-items: center;
 }
 .settings-content h3 {
   display: flex;

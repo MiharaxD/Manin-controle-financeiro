@@ -111,7 +111,7 @@ export interface Snapshot {
   invoices: Invoice[];
   transactions: Transaction[];
 }
-export interface DemoData {
+export interface FinancialData {
   categories: Category[];
   accounts: Account[];
   cards: Card[];
@@ -121,6 +121,7 @@ export interface DemoData {
   installments: Installment[];
   payments: InvoicePayment[];
 }
+export type DemoData = FinancialData;
 export interface Filters {
   search: string;
   kind: string;

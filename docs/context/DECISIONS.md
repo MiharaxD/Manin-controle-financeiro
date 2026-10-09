@@ -1,25 +1,34 @@
 # Decisões
 
-## Arquitetura pequena
+## Dados no dispositivo
 
-Decisão: Next.js com rotas de servidor e Supabase; sem ORM e sem serviço intermediário.
-Motivo: uma pessoa precisa de sincronização, não de infraestrutura de ERP.
-Consequência: mutações financeiras atômicas ficam em funções PostgreSQL com autenticação e RLS.
+Decisão: substituir Supabase por IndexedDB e publicar o Next.js como site estático.
+Motivo: dados financeiros precisam funcionar sem conta, servidor financeiro ou conexão depois da primeira abertura.
+Consequência: a origem/dispositivo/navegador define o espaço. Limpeza do navegador, mudança de origem ou perda do dispositivo exige recuperação por backup; não há sincronização automática.
+
+## Integridade e backup
+
+Decisão: gravações relacionadas e restauração são transações atômicas; backup `manin-backup` versão 2 inclui todo o conjunto e IDs.
+Motivo: impedir perdas parciais, referências quebradas e sobrescrita de alterações feitas em outra aba.
+Consequência: validação completa antes de substituir, confirmação com contagem/origem/data e revisão esperada. Parser reconhece o exportador completo v1 antigo; desconhecidos, parciais ou mistura de proprietários são recusados. Limite de 20 MB/100 mil registros garante backups restauráveis. JSON não executa conteúdo e não é criptografado pelo Manin.
+
+## Google Drive manual
+
+Decisão: token OAuth em memória e somente `drive.appdata`; backups na pasta privada do app. Conta confirmada por `about.get`.
+Motivo: menor acesso possível e nenhum servidor intermediário do Manin.
+Consequência: conectar não envia; envio manual exige confirmação de ID/tamanho/metadados pela API. Expiração exige nova ação. Falta de cliente OAuth mantém JSON local disponível e apresenta instruções reais.
 
 ## Demonstração isolada
 
-Decisão: `/demo` só existe em desenvolvimento e usa dados fictícios locais.
-Motivo: validar os fluxos sem credenciais, sem confundir com dados reais.
-Consequência: produção exige Supabase e autenticação; dados reais nunca vão ao armazenamento local nem ao cache do service worker.
+Decisão: dados fictícios em outro conjunto IndexedDB, somente em desenvolvimento.
+Motivo: testar os fluxos sem misturar exemplos com registros pessoais.
+Consequência: produção não cria demonstração; backup com origem demo não pode substituir dados pessoais.
 
 ## Identidade visual
 
-Decisão: direção inspirada na UI de Persona 5, com preto `#0B0B0D`, papel `#F4F0E7` e vermelho `#FF1828`, títulos Anton, corpo Inter, faixas angulares e sombras sólidas. Fontes locais com licenças OFL.
-Motivo: dar personalidade ao Manin preservando a leitura financeira.
-Consequência: somente camadas decorativas recebem inclinação, recorte ou textura. Valores tabulares, tabelas e campos permanecem horizontais. Marca e estados financeiros têm tokens separados; gráficos e legendas compartilham cores e exibem escalas sem animação. Cores personalizadas dos cartões ficam em detalhes de identificação. Ambos os temas usam a mesma composição, com navegação inferior que mede sua altura no celular e respeito a `prefers-reduced-motion`.
+Decisão: direção inspirada na UI de Persona 5, preto `#0B0B0D`, papel `#F4F0E7`, vermelho `#FF1828`, Anton/Inter locais com OFL.
+Consequência: somente decoração tem inclinação/recorte/textura. Valores, tabelas e campos horizontais; estados financeiros separados da marca; gráficos e legendas compartilham cores e escalas imediatas. Os dois temas mantêm a composição e redução de movimento.
 
-## Compatibilidade das ferramentas
+## Ferramentas
 
-Decisão: Node 22+, versões fixadas e lockfile; TypeScript 6 e ESLint 9 são compatíveis com os plugins instalados do Next.js 16.4.
-Motivo: os plugins ainda restringem as versões principais de TypeScript/ESLint.
-Consequência: avaliar uma atualização conjunta das ferramentas quando esses plugins suportarem as versões novas; não atualizar versões isoladas no chute.
+Node 22+, versões fixadas e lockfile; TypeScript 6/ESLint 9 enquanto os plugins do Next.js exigirem estas versões. Não atualizar ferramentas principais isoladamente.

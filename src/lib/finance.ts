@@ -1,4 +1,4 @@
-import type { Card, DemoData, Snapshot, Transaction } from "./types";
+import type { Card, FinancialData, Snapshot, Transaction } from "./types";
 
 export const MAX_CENTS = 2_000_000_000;
 export function parseMoney(value: string): number {
@@ -145,8 +145,8 @@ export function suggestCategory(
     )?.category_id ?? fallback
   );
 }
-export function demoSnapshot(
-  data: DemoData,
+export function buildSnapshot(
+  data: FinancialData,
   month: string,
   today: string,
 ): Snapshot {
@@ -248,11 +248,11 @@ export function demoSnapshot(
   return {
     month,
     today,
-    ...Object.fromEntries(
-      ["categories", "accounts", "cards", "recurrences"].map((k) => [
-        k,
-        data[k as keyof DemoData],
-      ]),
+    categories: [...data.categories].sort((a, b) => a.position - b.position),
+    accounts: data.accounts,
+    cards: data.cards,
+    recurrences: [...data.recurrences].sort((a, b) =>
+      a.next_date.localeCompare(b.next_date),
     ),
     budgets: data.budgets.filter((b) => b.month === month),
     monthly,
@@ -262,5 +262,6 @@ export function demoSnapshot(
       .filter((t) => monthOf(t.purchase_date) === month)
       .sort((a, b) => b.purchase_date.localeCompare(a.purchase_date))
       .slice(0, 8),
-  } as Snapshot;
+  };
 }
+export const demoSnapshot = buildSnapshot;

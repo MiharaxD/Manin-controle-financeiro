@@ -20,6 +20,7 @@ if not exist "node_modules\next\dist\bin\next" (
 )
 
 echo Iniciando o Manin. Mantenha este terminal aberto.
-echo Use o endereco exibido abaixo com /demo para abrir a demonstracao.
+echo Use o endereco exibido abaixo para seus dados locais.
+echo /demo abre apenas a demonstracao separada em desenvolvimento.
 "%MANIN_NODE%" "node_modules\next\dist\bin\next" dev --hostname 0.0.0.0 %*
 exit /b %errorlevel%

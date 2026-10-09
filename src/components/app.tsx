@@ -1,5 +1,4 @@
 "use client";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -10,7 +9,6 @@ import {
   CreditCard,
   Download,
   House,
-  LogOut,
   Moon,
   Plus,
   RefreshCw,
@@ -25,10 +23,16 @@ import {
   X,
   ChartNoAxesCombined,
 } from "lucide-react";
-import { addMonths, demoSnapshot, monthLabel } from "@/lib/finance";
-import { applyDemoMutation, generateDemoDue } from "@/lib/demo";
+import {
+  addMonths,
+  buildSnapshot,
+  monthLabel,
+  suggestCategory,
+  todaySP,
+} from "@/lib/finance";
 import { csv, download } from "@/lib/export";
-import { supabaseBrowser } from "@/lib/supabase/browser";
+import type { LocalStore, LocalRecord } from "@/lib/local-store";
+import { Backups } from "./backups";
 import type {
   Card,
   DemoData,
@@ -57,14 +61,15 @@ const navigation = [
 ] as const;
 export function FinanceApp({
   initial,
-  demoData,
-  email,
+  repository,
+  initialData,
+  needNotice,
 }: {
   initial: Snapshot;
-  demoData?: DemoData;
-  email?: string;
+  repository: LocalStore;
+  initialData: DemoData;
+  needNotice: boolean;
 }) {
-  const router = useRouter();
   const mobileNavRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const nav = mobileNavRef.current;
@@ -82,8 +87,8 @@ export function FinanceApp({
       document.documentElement.style.removeProperty("--mobile-nav-height");
     };
   }, []);
-  const demo = !!demoData,
-    dataRef = useRef(demoData),
+  const demo = repository.mode === "demo",
+    dataRef = useRef(initialData),
     monthRef = useRef(initial.month);
   const [s, setSnapshot] = useState(initial),
     [page, setPage] = useState<Page>("home"),
@@ -106,64 +111,56 @@ export function FinanceApp({
     [settingsBusy, setSettingsBusy] = useState(false),
     [failure, setFailure] = useState("");
   const [pageFilters, setPageFilters] = useState<Partial<Filters>>({});
-  const readJson = async <T,>(response: Response): Promise<T> => {
-    const result = await response.json();
-    if (!response.ok)
-      throw new Error(result.error || "Não foi possível carregar.");
-    return result as T;
-  };
+  const [notice, setNotice] = useState(needNotice && !demo);
+  const commit = useCallback(
+    (record: LocalRecord, month = monthRef.current) => {
+      dataRef.current = record.data;
+      if (month === monthRef.current)
+        setSnapshot(buildSnapshot(record.data, month, todaySP()));
+    },
+    [],
+  );
   const reload = useCallback(
     async (month = monthRef.current) => {
       monthRef.current = month;
-      if (demo && dataRef.current) {
-        dataRef.current = generateDemoDue(dataRef.current);
-        setSnapshot(demoSnapshot(dataRef.current, month, initial.today));
-      } else {
-        const next = await readJson<Snapshot>(
-          await fetch(`/api/data?month=${month}`, { cache: "no-store" }),
-        );
-        if (monthRef.current === month) setSnapshot(next);
-      }
+      const record = await repository.refresh();
+      commit(record, month);
       setFailure("");
     },
-    [demo, initial.today],
+    [repository, commit],
   );
   useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      setTheme(document.documentElement.dataset.theme ?? "light");
-      if (demo)
-        try {
-          const saved = sessionStorage.getItem("manin-demo-v1");
-          if (saved) {
-            dataRef.current = JSON.parse(saved);
-            void reload().catch(() => {
-              dataRef.current = demoData;
-            });
-          }
-        } catch {
-          /* Private browsing may disallow storage. */
-        }
-    });
-    const focus = () => {
-      if (!demo && navigator.onLine)
-        void reload().catch(() => {
-          setFailure(
-            "Não foi possível atualizar os dados. Confira sua conexão.",
-          );
-          setToast({
-            text: "Não foi possível sincronizar. Tente atualizar.",
-            error: true,
-          });
-        });
+    const frame = requestAnimationFrame(() =>
+      setTheme(document.documentElement.dataset.theme ?? "light"),
+    );
+    const refresh = () => {
+      void reload().catch(() => {
+        setFailure(
+          "Não foi possível ler os dados deste navegador. Nenhum dado foi substituído.",
+        );
+      });
     };
-    window.addEventListener("focus", focus);
-    window.addEventListener("online", focus);
+    const visible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    const unsubscribe = repository.subscribe(refresh);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", visible);
+    let day = todaySP();
+    const timer = setInterval(() => {
+      if (day !== todaySP()) {
+        day = todaySP();
+        refresh();
+      }
+    }, 60000);
     return () => {
       cancelAnimationFrame(frame);
-      window.removeEventListener("focus", focus);
-      window.removeEventListener("online", focus);
+      clearInterval(timer);
+      unsubscribe();
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", visible);
     };
-  }, [demo, demoData, reload]);
+  }, [repository, reload]);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(null), toast.undo ? 12000 : 6500);
@@ -171,35 +168,11 @@ export function FinanceApp({
   }, [toast]);
   const mutate = useCallback(
     async (mutation: Mutation) => {
-      if (demo && dataRef.current) {
-        dataRef.current = generateDemoDue(
-          applyDemoMutation(dataRef.current, mutation),
-        );
-        try {
-          sessionStorage.setItem(
-            "manin-demo-v1",
-            JSON.stringify(dataRef.current),
-          );
-        } catch {
-          /* Session storage is optional for the development demo. */
-        }
-      } else
-        await readJson(
-          await fetch("/api/data", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(mutation),
-          }),
-        );
-      try {
-        await reload();
-      } catch {
-        setFailure(
-          "O registro foi salvo, mas a atualização da tela falhou. Toque em Atualizar para consultar os dados.",
-        );
-      }
+      const record = await repository.mutate(mutation);
+      commit(record);
+      setFailure("");
     },
-    [demo, reload],
+    [repository, commit],
   );
   const save = async (mutation: Mutation) => {
     await mutate(mutation);
@@ -208,7 +181,7 @@ export function FinanceApp({
       text:
         mutation.action === "payment"
           ? "Pagamento registrado."
-          : "Salvo. Tudo certo!",
+          : "Salvo neste dispositivo.",
     });
   };
   const safeMutate = async (mutation: Mutation) => {
@@ -219,88 +192,85 @@ export function FinanceApp({
       setToast({ text: (e as Error).message, error: true });
     }
   };
+  const suggest = useCallback(
+    async (merchant: string, fallback: string) =>
+      suggestCategory(
+        merchant,
+        dataRef.current.transactions
+          .filter((t) => !t.deleted_at)
+          .sort((a, b) => b.purchase_date.localeCompare(a.purchase_date)),
+        fallback,
+      ),
+    [],
+  );
   const loadTransactions = useCallback<Loader>(
     async (filters, page, signal) => {
-      if (demo && dataRef.current) {
-        const rows = dataRef.current.transactions
-          .filter(
-            (t) =>
-              !t.deleted_at &&
-              (!filters.from || t.purchase_date >= filters.from) &&
-              (!filters.to || t.purchase_date <= filters.to) &&
-              (!filters.kind || t.kind === filters.kind) &&
-              (!filters.category || t.category_id === filters.category) &&
-              (!filters.card || t.card_id === filters.card) &&
-              (!filters.method || t.payment_method === filters.method) &&
-              (!filters.status || t.status === filters.status) &&
-              (!filters.recurrence || t.recurrence_id === filters.recurrence) &&
-              (!filters.search ||
-                `${t.description} ${t.merchant}`
-                  .toLocaleLowerCase("pt-BR")
-                  .includes(filters.search.toLocaleLowerCase("pt-BR"))),
-          )
-          .sort((a, b) => b.purchase_date.localeCompare(a.purchase_date));
-        return {
-          rows: rows.slice(page * 30, page * 30 + 30),
-          count: rows.length,
-        };
-      }
-      const params = new URLSearchParams({ ...filters, page: String(page) });
-      return readJson(
-        await fetch(`/api/transactions?${params}`, {
-          signal,
-          cache: "no-store",
-        }),
-      );
+      if (signal?.aborted)
+        throw new DOMException("Consulta cancelada", "AbortError");
+      const record = await repository.read();
+      const rows = record.data.transactions
+        .filter(
+          (t) =>
+            !t.deleted_at &&
+            (!filters.from || t.purchase_date >= filters.from) &&
+            (!filters.to || t.purchase_date <= filters.to) &&
+            (!filters.kind || t.kind === filters.kind) &&
+            (!filters.category || t.category_id === filters.category) &&
+            (!filters.card || t.card_id === filters.card) &&
+            (!filters.method || t.payment_method === filters.method) &&
+            (!filters.status || t.status === filters.status) &&
+            (!filters.recurrence || t.recurrence_id === filters.recurrence) &&
+            (!filters.search ||
+              (t.description + " " + t.merchant)
+                .toLocaleLowerCase("pt-BR")
+                .includes(filters.search.toLocaleLowerCase("pt-BR"))),
+        )
+        .sort((a, b) => b.purchase_date.localeCompare(a.purchase_date));
+      return {
+        rows: rows.slice(page * 30, page * 30 + 30),
+        count: rows.length,
+      };
     },
-    [demo],
+    [repository],
   );
   const loadInvoice = useCallback<InvoiceLoader>(
     async (card, month, page) => {
-      if (demo && dataRef.current) {
-        const data = dataRef.current;
-        const rows = data.installments
+      const data = (await repository.read()).data;
+      const live = new Map(
+        data.transactions
           .filter(
-            (i) =>
-              i.card_id === card &&
-              i.billing_month === month &&
-              data.transactions.some(
-                (t) =>
-                  t.id === i.transaction_id &&
-                  !t.deleted_at &&
-                  t.status === "actual" &&
-                  t.purchase_date <= initial.today,
-              ),
+            (t) =>
+              !t.deleted_at &&
+              t.status === "actual" &&
+              t.purchase_date <= todaySP(),
           )
-          .map((i) => ({
-            ...i,
-            transaction: data.transactions.find(
-              (t) => t.id === i.transaction_id,
-            )!,
-          }));
-        return {
-          rows: rows.slice(page * 30, page * 30 + 30),
-          count: rows.length,
-          category_totals: data.categories
-            .map((c) => ({
-              category_id: c.id,
-              total: rows
-                .filter((i) => i.transaction.category_id === c.id)
-                .reduce((n, i) => n + i.amount_cents, 0),
-            }))
-            .filter((c) => c.total > 0),
-          payments: data.payments.filter(
-            (p) => p.card_id === card && p.billing_month === month,
-          ),
-        };
-      }
-      return readJson(
-        await fetch(`/api/invoice?card=${card}&month=${month}&page=${page}`, {
-          cache: "no-store",
-        }),
+          .map((t) => [t.id, t]),
       );
+      const rows = data.installments
+        .filter(
+          (i) =>
+            i.card_id === card &&
+            i.billing_month === month &&
+            live.has(i.transaction_id),
+        )
+        .map((i) => ({ ...i, transaction: live.get(i.transaction_id)! }));
+      return {
+        rows: rows.slice(page * 30, page * 30 + 30),
+        count: rows.length,
+        category_totals: data.categories
+          .map((c) => ({
+            category_id: c.id,
+            total: rows
+              .filter((i) => i.transaction.category_id === c.id)
+              .reduce((n, i) => n + i.amount_cents, 0),
+          }))
+          .filter((c) => c.total > 0),
+        payments: data.payments.filter(
+          (p) => p.card_id === card && p.billing_month === month,
+        ),
+      };
     },
-    [demo, initial.today],
+    [repository],
   );
   const changeMonth = async (offset: number) => {
     const next = addMonths(s.month, offset, 1);
@@ -350,29 +320,20 @@ export function FinanceApp({
   const exportData = async (format: "csv" | "json") => {
     setSettingsBusy(true);
     try {
-      if (demo && dataRef.current)
-        download(
-          format === "csv"
-            ? csv(
-                dataRef.current.transactions.filter((t) => !t.deleted_at),
-                s.categories,
-              )
-            : JSON.stringify({ version: 1, ...dataRef.current }, null, 2),
-          `manin.${format}`,
-          format === "csv" ? "text/csv;charset=utf-8" : "application/json",
-        );
-      else {
-        const response = await fetch(`/api/export?format=${format}`, {
-          cache: "no-store",
-        });
-        if (!response.ok) await readJson(response);
-        download(
-          await response.text(),
-          `manin.${format}`,
-          format === "csv" ? "text/csv;charset=utf-8" : "application/json",
-        );
-      }
-      setToast({ text: "Exportação pronta." });
+      const backup = await repository.backup();
+      download(
+        format === "csv"
+          ? csv(
+              backup.data.transactions.filter((t) => !t.deleted_at),
+              backup.data.categories,
+            )
+          : JSON.stringify(backup, null, 2),
+        "manin." + format,
+        format === "csv" ? "text/csv;charset=utf-8" : "application/json",
+      );
+      setToast({
+        text: "Arquivo preparado para download. Guarde-o em um lugar seguro.",
+      });
     } catch (e) {
       setToast({ text: (e as Error).message, error: true });
     } finally {
@@ -435,10 +396,10 @@ export function FinanceApp({
             </span>
           </div>
           <div className="profile">
-            <span className="avatar">{email?.[0]?.toUpperCase() ?? "M"}</span>
+            <span className="avatar">M</span>
             <div>
-              <strong>{demo ? "Modo demonstração" : "Minha conta"}</strong>
-              <span>{demo ? "Dados fictícios" : email}</span>
+              <strong>{demo ? "Modo demonstração" : "Conta local"}</strong>
+              <span>{demo ? "Dados fictícios" : "Neste navegador"}</span>
             </div>
           </div>
         </div>
@@ -464,8 +425,8 @@ export function FinanceApp({
                 : refreshing
                   ? "Atualizando"
                   : failure
-                    ? "Revisar conexão"
-                    : "Sincronizado"}
+                    ? "Revisar armazenamento"
+                    : "Salvo neste dispositivo"}
             </span>
             <button
               className="icon-button"
@@ -483,7 +444,7 @@ export function FinanceApp({
             >
               <Settings2 size={19} />
             </button>
-            <span className="avatar">{email?.[0]?.toUpperCase() ?? "M"}</span>
+            <span className="avatar">M</span>
           </div>
         </header>
         <main>
@@ -517,18 +478,33 @@ export function FinanceApp({
             <div className="demo-banner">
               <span className="demo-dot" />
               <span>
-                Demonstração com dados fictícios. Alterações ficam nesta aba e
-                não são sincronizadas.
+                Demonstração com dados fictícios. Alterações ficam no espaço de
+                demonstração deste navegador, separadas dos seus dados pessoais.
               </span>
               <button
                 className="text-button"
                 onClick={() => {
-                  dataRef.current = demoData;
-                  sessionStorage.removeItem("manin-demo-v1");
-                  void reload();
+                  void repository
+                    .reset()
+                    .then((record) => commit(record))
+                    .catch((error) =>
+                      setToast({ text: (error as Error).message, error: true }),
+                    );
                 }}
               >
                 Reiniciar
+              </button>
+            </div>
+          )}
+          {!demo && (
+            <div className="demo-banner local-banner">
+              <ShieldCheck size={17} />
+              <span>
+                Dados neste dispositivo e navegador. Limpar o navegador ou
+                trocar de dispositivo pode remover seu acesso. Faça backups.
+              </span>
+              <button className="text-button" onClick={() => setSettings(true)}>
+                Backups
               </button>
             </div>
           )}
@@ -698,6 +674,45 @@ export function FinanceApp({
       >
         <Plus size={26} />
       </button>
+      {notice && (
+        <Dialog
+          open
+          onClose={() => {
+            void repository
+              .acknowledge()
+              .then(() => setNotice(false))
+              .catch((error) =>
+                setToast({ text: (error as Error).message, error: true }),
+              );
+          }}
+          title="Seus dados ficam neste dispositivo"
+        >
+          <p className="dialog-copy">
+            O Manin funciona sem conta e guarda suas finanças somente neste
+            dispositivo e navegador. Não enviamos os registros a um servidor do
+            Manin.
+          </p>
+          <p className="dialog-copy">
+            Limpar os dados do navegador, usar outro navegador ou trocar de
+            dispositivo pode remover seus dados ou impedir o acesso a eles.
+            Exporte backups JSON regularmente. O Google Drive é opcional e
+            recebe uma cópia apenas quando você solicitar.
+          </p>
+          <button
+            className="button primary"
+            onClick={() => {
+              void repository
+                .acknowledge()
+                .then(() => setNotice(false))
+                .catch((error) =>
+                  setToast({ text: (error as Error).message, error: true }),
+                );
+            }}
+          >
+            Entendi, abrir Manin
+          </button>
+        </Dialog>
+      )}
       {editor && (
         <Dialog open onClose={() => setEditor(null)} title={editorTitle}>
           {editor.type === "transaction" ? (
@@ -705,7 +720,7 @@ export function FinanceApp({
               snapshot={s}
               editor={editor}
               save={save}
-              demo={demo}
+              suggest={suggest}
             />
           ) : (
             <>
@@ -843,8 +858,9 @@ export function FinanceApp({
                 para usar como aplicativo.
               </p>
               <p className="hint">
-                Precisa de conexão para consultar e salvar. A instalação em
-                dispositivos exige HTTPS.
+                Após a primeira abertura da versão publicada, seus dados e o app
+                ficam disponíveis offline. A instalação exige HTTPS. Não há
+                sincronização entre dispositivos.
               </p>
             </section>
             <section>
@@ -945,7 +961,9 @@ export function FinanceApp({
               </h3>
               <p>
                 CSV exporta os lançamentos. JSON inclui cartões, parcelas,
-                pagamentos, recorrências e orçamentos.
+                pagamentos, recorrências, categorias e orçamentos. O arquivo
+                contém informações financeiras sensíveis; guarde-o em um lugar
+                seguro.
               </p>
               <div className="dialog-actions">
                 <button
@@ -968,12 +986,25 @@ export function FinanceApp({
                 </button>
               </div>
             </section>
+            <Backups
+              repository={repository}
+              onRestored={(record) => {
+                commit(record);
+                setInvoice(null);
+                setHistory(null);
+                setDeleteTarget(null);
+                setPageFilters({});
+                setPage("home");
+                setToast(null);
+              }}
+            />
             <section>
               <h3 className="danger-text">Excluir meus dados</h3>
               <p>
                 Remove todos os registros financeiros desta conta. Exporte antes
-                se quiser guardar uma cópia. Sua conta de acesso continua
-                existindo.
+                se quiser guardar uma cópia. Contas e categorias personalizadas
+                também serão removidas; o app volta às opções iniciais vazias.
+                Backups no Drive não são apagados.
               </p>
               <label>
                 Digite EXCLUIR para confirmar
@@ -1005,26 +1036,6 @@ export function FinanceApp({
                 Excluir todos os dados
               </button>
             </section>
-            {!demo && (
-              <button
-                className="button secondary"
-                onClick={async () => {
-                  const { error } = await supabaseBrowser().auth.signOut();
-                  if (error)
-                    setToast({
-                      text: "Não foi possível sair. Tente novamente.",
-                      error: true,
-                    });
-                  else {
-                    router.replace("/login");
-                    router.refresh();
-                  }
-                }}
-              >
-                <LogOut size={18} />
-                Sair da conta
-              </button>
-            )}
           </div>
         </Dialog>
       )}
