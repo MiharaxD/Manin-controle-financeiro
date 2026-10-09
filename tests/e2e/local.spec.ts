@@ -74,7 +74,9 @@ test("JSON exige confirmação; cancelar ou importar inválido preserva os dados
   await enter(page);
   await add(page, "Backup original do teste", "49,90");
   let settings = await preferences(page);
-  await expect(settings).toContainText("Google Drive não configurado");
+  await expect(
+    settings.getByRole("heading", { name: "Backup no Google Drive" }),
+  ).toBeVisible();
   const wait = page.waitForEvent("download");
   await settings
     .getByRole("button", { name: "Exportar JSON", exact: true })
@@ -82,7 +84,7 @@ test("JSON exige confirmação; cancelar ou importar inválido preserva os dados
   const download = await wait;
   const text = await readFile((await download.path())!, "utf8");
   const backup = JSON.parse(text) as Backup;
-  expect(backup.version).toBe(2);
+  expect(backup.version).toBe(3);
   expect(backup.source).toBe("local");
   await settings.getByRole("button", { name: "Fechar", exact: true }).click();
   await page.getByRole("button", { name: /Backup original do teste/ }).click();
@@ -115,13 +117,11 @@ test("JSON exige confirmação; cancelar ou importar inválido preserva os dados
   settings = await preferences(page);
   backup.data.transactions[0].merchant =
     "<img src=x onerror=window.maninInjected=true>";
-  await settings
-    .getByLabel("Arquivo de backup JSON")
-    .setInputFiles({
-      name: "literal.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(backup)),
-    });
+  await settings.getByLabel("Arquivo de backup JSON").setInputFiles({
+    name: "literal.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(backup)),
+  });
   confirm = page.getByRole("dialog", {
     name: "Substituir dados locais?",
     exact: true,
@@ -158,13 +158,11 @@ test("dados pessoais continuam separados ao reiniciar ou restaurar a demonstraç
   await settings.getByRole("button", { name: "Fechar", exact: true }).click();
   await demo.getByRole("button", { name: "Reiniciar", exact: true }).click();
   const personal = await preferences(page);
-  await personal
-    .getByLabel("Arquivo de backup JSON")
-    .setInputFiles({
-      name: "demo.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(text),
-    });
+  await personal.getByLabel("Arquivo de backup JSON").setInputFiles({
+    name: "demo.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(text),
+  });
   await expect(personal.getByRole("alert")).toContainText("demonstração");
   await personal.getByRole("button", { name: "Fechar", exact: true }).click();
   await expect(page.locator(".hero-amount")).toContainText("1,01");

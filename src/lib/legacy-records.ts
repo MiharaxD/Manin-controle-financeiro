@@ -2,16 +2,38 @@ import { z } from "zod";
 import {
   accountSchema,
   budgetSchema,
-  cardSchema,
+  legacyRecurrenceSchema as recurrenceSchema,
   categorySchema,
   date,
   paymentSchema,
-  recurrenceSchema,
-  recurrenceTypeSchema,
   transactionSchema,
 } from "./schemas";
-import { addMonths, splitInstallments, MAX_CENTS, todaySP } from "./finance";
-import type { FinancialData } from "./types";
+import {
+  addMonths,
+  invoiceDates,
+  splitInstallments,
+  MAX_CENTS,
+  todaySP,
+} from "./finance";
+import type { FinancialData, Recurrence } from "./types";
+const cardSchema = z.object({
+  id: z.uuid().optional(),
+  name: z.string().trim().min(1).max(60),
+  institution: z.string().trim().max(60),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  limit_cents: z.number().int().min(1).max(MAX_CENTS).nullable(),
+  last_four: z.string().regex(/^\d{4}$|^$/),
+  closing_day: z.number().int().min(1).max(31),
+  due_day: z.number().int().min(1).max(31),
+});
+export type LegacyFinancialData = Omit<
+  FinancialData,
+  "cards" | "recurrences" | "recurrence_types" | "transactions"
+> & {
+  cards: z.infer<typeof cardSchema>[] & { id: string }[];
+  recurrences: Omit<Recurrence, "type_id">[];
+  transactions: Omit<FinancialData["transactions"][number], "credit_month">[];
+};
 
 const id = z.uuid();
 export const timestamp = z.iso.datetime({ offset: true });
@@ -21,7 +43,6 @@ const transaction = transactionSchema
     recurrence_id: id.nullable(),
     occurrence_date: date.nullable(),
     deleted_at: timestamp.nullable(),
-    credit_month: date.refine((v) => v.endsWith("-01")).nullable(),
   })
   .strict();
 const installment = z.strictObject({
@@ -33,13 +54,10 @@ const installment = z.strictObject({
   billing_month: date.refine((v) => v.endsWith("-01")),
   due_date: date,
 });
-export const dataSchema = z.strictObject({
+export const legacyDataSchema = z.strictObject({
   categories: z.array(categorySchema.safeExtend({ id }).strict()).max(100000),
   accounts: z.array(accountSchema.safeExtend({ id }).strict()).max(100000),
   cards: z.array(cardSchema.safeExtend({ id }).strict()).max(100000),
-  recurrence_types: z
-    .array(recurrenceTypeSchema.safeExtend({ id }).strict())
-    .max(100000),
   recurrences: z
     .array(recurrenceSchema.safeExtend({ id }).strict())
     .max(100000),
@@ -48,7 +66,7 @@ export const dataSchema = z.strictObject({
   installments: z.array(installment).max(100000),
   payments: z.array(paymentSchema.safeExtend({ id }).strict()).max(100000),
 });
-export function validateData(input: unknown): FinancialData {
+export function validateLegacyData(input: unknown): LegacyFinancialData {
   if (
     new TextEncoder().encode(JSON.stringify(input)).byteLength >
     20 * 1024 * 1024 - 4096
@@ -56,7 +74,7 @@ export function validateData(input: unknown): FinancialData {
     throw new Error(
       "O conjunto excede o limite local de 20 MB. A operação foi cancelada para manter backups restauráveis.",
     );
-  const parsed = dataSchema.safeParse(input);
+  const parsed = legacyDataSchema.safeParse(input);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     throw new Error(
@@ -80,12 +98,6 @@ export function validateData(input: unknown): FinancialData {
   const accounts = new Set(data.accounts.map((a) => a.id));
   const cards = new Map(data.cards.map((c) => [c.id, c]));
   const recurrences = new Map(data.recurrences.map((r) => [r.id, r]));
-  const recurrenceTypes = new Set(data.recurrence_types.map((r) => r.id));
-  const typeNames = data.recurrence_types.map((r) =>
-    r.name.normalize("NFKC").replace(/\s+/g, " ").toLocaleLowerCase("pt-BR"),
-  );
-  if (new Set(typeNames).size !== typeNames.length)
-    fail("tipos de recorrentes com nomes repetidos.");
   const transactions = new Map(data.transactions.map((t) => [t.id, t]));
   const ref = (
     value: string | null,
@@ -104,7 +116,6 @@ export function validateData(input: unknown): FinancialData {
       fail("hierarquia de categorias inválida.");
   }
   for (const r of data.recurrences) {
-    ref(r.type_id, recurrenceTypes, "tipo de recorrente");
     ref(r.category_id, categories, "recorrência");
     ref(r.card_id, cards, "recorrência");
     ref(r.account_id, accounts, "recorrência");
@@ -132,15 +143,8 @@ export function validateData(input: unknown): FinancialData {
       fail("transferência incompatível.");
     if (Boolean(t.recurrence_id) !== Boolean(t.occurrence_date))
       fail("ocorrência incompleta.");
-    if ("make_recurring" in t || "recurrence_type_id" in t)
+    if ("make_recurring" in t)
       fail("campo de comando não é um registro financeiro.");
-    if (
-      t.payment_method === "credit"
-        ? !t.credit_month ||
-          t.credit_month < t.purchase_date.slice(0, 7) + "-01"
-        : t.credit_month !== null
-    )
-      fail("mês do crédito incompatível.");
     if (t.recurrence_id) {
       const key = t.recurrence_id + "/" + t.occurrence_date;
       if (occurrences.has(key)) fail("ocorrência duplicada.");
@@ -165,10 +169,10 @@ export function validateData(input: unknown): FinancialData {
       if (rows.length) fail("parcelas sem crédito.");
       continue;
     }
-    const first = t.credit_month!;
+    const card = cards.get(t.card_id!)!;
+    const first = invoiceDates(t.purchase_date, card);
     const amounts = splitInstallments(t.amount_cents, t.installments_count);
     if (rows.length !== amounts.length) fail("faltam parcelas.");
-    const dueDay = Math.max(...rows.map((i) => Number(i.due_date.slice(8))));
     const seen = new Set<number>();
     for (const i of rows) {
       const n = i.number - 1;
@@ -176,8 +180,8 @@ export function validateData(input: unknown): FinancialData {
         seen.has(n) ||
         n >= amounts.length ||
         i.amount_cents !== amounts[n] ||
-        i.billing_month !== addMonths(first, n, 1) ||
-        i.due_date !== addMonths(first, n, dueDay)
+        i.billing_month !== addMonths(first.billing_month, n, 1) ||
+        i.due_date !== addMonths(first.billing_month, n, card.due_day)
       )
         fail("valor ou calendário de parcela inválido.");
       seen.add(n);

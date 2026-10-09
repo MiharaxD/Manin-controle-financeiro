@@ -91,7 +91,7 @@ export function splitInstallments(total: number, count: number): number[] {
 }
 export function invoiceDates(
   purchase: string,
-  card: Pick<Card, "closing_day" | "due_day">,
+  card: { closing_day: number; due_day: number },
 ) {
   const day = Number(purchase.slice(8, 10));
   let closingMonth = monthOf(purchase);
@@ -110,7 +110,7 @@ export function invoiceDates(
   return { billing_month: dueMonth, due_date: due };
 }
 export function schedule(transaction: Transaction, card: Card) {
-  const first = invoiceDates(transaction.purchase_date, card);
+  const first = transaction.credit_month ?? monthOf(transaction.purchase_date);
   return splitInstallments(
     transaction.amount_cents,
     transaction.installments_count,
@@ -120,8 +120,8 @@ export function schedule(transaction: Transaction, card: Card) {
     card_id: card.id,
     number: i + 1,
     amount_cents: amount,
-    billing_month: addMonths(first.billing_month, i, 1),
-    due_date: addMonths(first.billing_month, i, card.due_day),
+    billing_month: addMonths(first, i, 1),
+    due_date: addMonths(first, i, 31),
   }));
 }
 export function monthlyEquivalent(cents: number, interval: number) {
@@ -251,6 +251,7 @@ export function buildSnapshot(
     categories: [...data.categories].sort((a, b) => a.position - b.position),
     accounts: data.accounts,
     cards: data.cards,
+    recurrence_types: data.recurrence_types,
     recurrences: [...data.recurrences].sort((a, b) =>
       a.next_date.localeCompare(b.next_date),
     ),

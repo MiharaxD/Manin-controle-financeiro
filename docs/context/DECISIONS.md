@@ -8,9 +8,14 @@ Consequência: a origem/dispositivo/navegador define o espaço. Limpeza do naveg
 
 ## Integridade e backup
 
-Decisão: gravações relacionadas e restauração são transações atômicas; backup `manin-backup` versão 2 inclui todo o conjunto e IDs.
+Decisão: gravações relacionadas e restauração são transações atômicas; backup `manin-backup` versão 3 inclui todo o conjunto, tipos de recorrentes e IDs.
 Motivo: impedir perdas parciais, referências quebradas e sobrescrita de alterações feitas em outra aba.
-Consequência: validação completa antes de substituir, confirmação com contagem/origem/data e revisão esperada. Parser reconhece o exportador completo v1 antigo; desconhecidos, parciais ou mistura de proprietários são recusados. Limite de 20 MB/100 mil registros garante backups restauráveis. JSON não executa conteúdo e não é criptografado pelo Manin.
+Consequência: validação completa antes de substituir, confirmação com contagem/origem/data e revisão esperada. Parser reconhece backups locais/Drive v2 e o exportador completo v1 antigo; desconhecidos, parciais ou mistura de proprietários são recusados. Limite de 20 MB/100 mil registros garante backups restauráveis. JSON não executa conteúdo e não é criptografado pelo Manin.
+
+## Crédito e recorrentes simplificados
+
+Decisão: por pedido do usuário, cartões guardam só apelido e novas compras/parcelas seguem o mês da compra, com meses seguintes consecutivos. Recorrentes e apelidos compartilham a tela Recorrentes, com criação de apelido dentro dos formulários. Tipos iniciais e personalizados são geridos nas Preferências.
+Consequência: nenhum cadastro de banco, dígitos, limite, fechamento ou vencimento. Migração atômica valida o formato anterior, remove esses metadados e preserva IDs/parcelas/pagamentos/competências. Recorrentes antigas ficam em Outros até edição. Transferências saem dos novos lançamentos; registros antigos são históricos sem edição/reutilização, preservados nos backups e fora dos totais financeiros.
 
 ## Google Drive manual
 

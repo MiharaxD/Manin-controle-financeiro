@@ -1,4 +1,14 @@
 import type { FinancialData } from "./types";
+export function createRecurrenceTypes() {
+  return [
+    "Assinatura",
+    "Seguro",
+    "Plano",
+    "Conta",
+    "Mensalidade",
+    "Outros",
+  ].map((name) => ({ id: crypto.randomUUID(), name }));
+}
 export function createEmptyData(): FinancialData {
   const labels = [
     "Alimentação",
@@ -60,6 +70,7 @@ export function createEmptyData(): FinancialData {
     installments: [],
     payments: [],
     recurrences: [],
+    recurrence_types: createRecurrenceTypes(),
     budgets: [],
   };
 }

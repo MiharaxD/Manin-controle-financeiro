@@ -17,6 +17,7 @@ import {
 } from "../src/lib/demo";
 import { csv } from "../src/lib/export";
 import { transactionSchema } from "../src/lib/schemas";
+import { validateData } from "../src/lib/records";
 test("centavos brasileiros são exatos e entrada ambígua é recusada", () => {
   for (const [text, cents] of [
     ["0,01", 1],
@@ -159,7 +160,7 @@ test("recorrências são idempotentes e pausa preserva histórico", () => {
 test("transferências e previsões não viram receitas ou consumo", () => {
   const data = createDemo("2026-10-08"),
     before = demoSnapshot(data, "2026-10-01", "2026-10-08");
-  let next = applyDemoMutation(data, {
+  const transfer = {
     action: "transaction",
     payload: {
       kind: "transfer",
@@ -175,7 +176,21 @@ test("transferências e previsões não viram receitas ou consumo", () => {
       installments_count: 1,
       status: "actual",
     },
+  };
+  assert.throws(() => applyDemoMutation(data, transfer), /despesa ou receita/);
+  let next = structuredClone(data);
+  next.transactions.push({
+    ...transfer.payload,
+    id: crypto.randomUUID(),
+    kind: "transfer",
+    payment_method: "pix",
+    status: "actual",
+    credit_month: null,
+    recurrence_id: null,
+    occurrence_date: null,
+    deleted_at: null,
   });
+  next = validateData(next);
   assert.deepEqual(
     demoSnapshot(next, "2026-10-01", "2026-10-08").monthly,
     before.monthly,

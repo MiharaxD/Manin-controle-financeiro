@@ -15,12 +15,10 @@ export interface Account {
 export interface Card {
   id: string;
   name: string;
-  institution: string;
-  color: string;
-  limit_cents: number | null;
-  last_four: string;
-  closing_day: number;
-  due_day: number;
+}
+export interface RecurrenceType {
+  id: string;
+  name: string;
 }
 export interface Transaction {
   id: string;
@@ -39,6 +37,7 @@ export interface Transaction {
   recurrence_id: string | null;
   occurrence_date: string | null;
   deleted_at: string | null;
+  credit_month: string | null;
 }
 export interface Installment {
   id: string;
@@ -60,6 +59,7 @@ export interface InvoicePayment {
 export interface Recurrence {
   id: string;
   name: string;
+  type_id: string;
   amount_cents: number;
   category_id: string;
   payment_method: Method;
@@ -105,6 +105,7 @@ export interface Snapshot {
   accounts: Account[];
   cards: Card[];
   recurrences: Recurrence[];
+  recurrence_types: RecurrenceType[];
   budgets: Budget[];
   monthly: MonthlyTotal[];
   category_totals: CategoryTotal[];
@@ -116,6 +117,7 @@ export interface FinancialData {
   accounts: Account[];
   cards: Card[];
   recurrences: Recurrence[];
+  recurrence_types: RecurrenceType[];
   budgets: Budget[];
   transactions: Transaction[];
   installments: Installment[];

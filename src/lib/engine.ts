@@ -1,4 +1,10 @@
-import { addMonths, buildSnapshot, schedule, todaySP } from "./finance";
+import {
+  addMonths,
+  buildSnapshot,
+  schedule,
+  todaySP,
+  monthOf,
+} from "./finance";
 import { mutationSchema } from "./schemas";
 import { validateData } from "./records";
 import { createEmptyData } from "./initial-data";
@@ -27,6 +33,10 @@ export function applyMutation(
     const value = parsed.payload,
       id = value.id ?? uid(),
       old = data.transactions.find((t) => t.id === id);
+    if (old?.kind === "transfer")
+      throw new Error(
+        "Transferência antiga preservada no histórico. Crie uma despesa ou receita nova.",
+      );
     if (old?.deleted_at)
       throw new Error("Restaure o lançamento antes de editar.");
     if (paid(id))
@@ -56,6 +66,7 @@ export function applyMutation(
       data.recurrences.push({
         id: recurrence_id,
         name: value.merchant || value.description || "Despesa recorrente",
+        type_id: value.recurrence_type_id!,
         amount_cents: value.amount_cents,
         category_id: value.category_id!,
         payment_method: value.payment_method,
@@ -80,14 +91,26 @@ export function applyMutation(
         throw new Error("Ocorrência já registrada.");
       r.next_date = addMonths(r.next_date, r.interval_months, r.anchor_day);
     }
-    const { make_recurring: command, ...fields } = value;
+    const {
+      make_recurring: command,
+      recurrence_type_id: typeCommand,
+      ...fields
+    } = value;
     void command;
+    void typeCommand;
     const t: Transaction = {
       ...fields,
       id,
       recurrence_id,
       occurrence_date,
       deleted_at: null,
+      credit_month:
+        value.payment_method === "credit"
+          ? old?.purchase_date === value.purchase_date &&
+            old.card_id === value.card_id
+            ? old.credit_month
+            : monthOf(value.purchase_date)
+          : null,
     };
     data.transactions = [...data.transactions.filter((t) => t.id !== id), t];
     data.installments = data.installments.filter(
@@ -98,7 +121,20 @@ export function applyMutation(
         ...schedule(
           t,
           data.cards.find((c) => c.id === t.card_id)!,
-        ),
+        ).map((i) => {
+          const previous = input.installments.find(
+            (oldPart) =>
+              oldPart.transaction_id === id &&
+              oldPart.number === i.number &&
+              oldPart.billing_month === i.billing_month,
+          );
+          return previous &&
+            old?.purchase_date === t.purchase_date &&
+            old.card_id === t.card_id &&
+            old.installments_count === t.installments_count
+            ? { ...i, due_date: previous.due_date }
+            : i;
+        }),
       );
   } else if (parsed.action === "payment") {
     const value = parsed.payload;
@@ -145,7 +181,16 @@ export function applyMutation(
         category: "categories",
         budget: "budgets",
         account: "accounts",
-      }[value.entity] as "cards" | "categories" | "budgets" | "accounts";
+        recurrence_type: "recurrence_types",
+      }[value.entity] as
+        "cards" | "categories" | "budgets" | "accounts" | "recurrence_types";
+      if (
+        key === "recurrence_types" &&
+        data.recurrences.some((r) => r.type_id === value.id)
+      )
+        throw new Error(
+          "Tipo em uso por uma recorrente. Troque o tipo dela antes de excluir.",
+        );
       if (
         key === "cards" &&
         (data.transactions.some((t) => t.card_id === value.id) ||
@@ -186,20 +231,14 @@ export function applyMutation(
       account: "accounts",
       budget: "budgets",
       recurrence: "recurrences",
+      recurrence_type: "recurrence_types",
     }[parsed.action] as
-      "cards" | "categories" | "accounts" | "budgets" | "recurrences";
-    if (parsed.action === "card") {
-      const old = data.cards.find((c) => c.id === parsed.payload.id);
-      if (
-        old &&
-        (old.closing_day !== parsed.payload.closing_day ||
-          old.due_day !== parsed.payload.due_day) &&
-        data.transactions.some((t) => t.card_id === old.id)
-      )
-        throw new Error(
-          "Cartão com compras: mantenha os dias do ciclo ou cadastre outro cartão.",
-        );
-    }
+      | "cards"
+      | "categories"
+      | "accounts"
+      | "budgets"
+      | "recurrences"
+      | "recurrence_types";
     if (parsed.action === "category" && parsed.payload.parent_id) {
       const parent = data.categories.find(
         (c) => c.id === parsed.payload.parent_id,

@@ -6,7 +6,7 @@ import type {
   Transaction,
 } from "@/lib/types";
 export type Page =
-  "home" | "transactions" | "cards" | "recurrences" | "reports" | "budgets";
+  "home" | "transactions" | "recurrences" | "reports" | "budgets";
 export type Loader = (
   filters: Partial<Filters> & { recurrence?: string },
   page: number,

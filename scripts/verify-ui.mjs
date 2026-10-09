@@ -8,8 +8,8 @@ await mkdir(out, { recursive: true });
 const browser = await chromium.launch();
 const checks = [];
 const pageErrors = [];
-const views = ["Início", "Transações", "Cartões", "Recorrências", "Relatórios"];
-const slug = ["home", "transactions", "cards", "recurrences", "reports"];
+const views = ["Início", "Transações", "Recorrentes", "Relatórios"];
+const slug = ["home", "transactions", "recurrences", "reports"];
 async function fit(page, label) {
   const result = await page.evaluate(() => ({
     width: innerWidth,
@@ -74,7 +74,7 @@ try {
           animations: "disabled",
           path: out + "/" + width + "-" + theme + "-" + slug[i] + ".png",
         });
-        if (views[i] === "Transações" || views[i] === "Recorrências") {
+        if (views[i] === "Transações" || views[i] === "Recorrentes") {
           const menu = page.locator(".row-menu").first();
           await menu.locator("summary").click();
           const bounds = await menu.locator("div").boundingBox();
@@ -101,6 +101,31 @@ try {
         }
       }
       // Budget view lives in preferences on mobile.
+      await navigate(page, "Recorrentes", mobile);
+      await page.locator(".credit-section").scrollIntoViewIfNeeded();
+      await page.screenshot({
+        animations: "disabled",
+        path: out + "/" + width + "-" + theme + "-credit.png",
+      });
+      await page
+        .getByRole("button", { name: "Nova recorrente", exact: true })
+        .click();
+      const recurring = page.getByRole("dialog");
+      await recurring
+        .getByLabel("Pagamento", { exact: true })
+        .selectOption("credit");
+      await recurring
+        .getByRole("button", { name: "Novo apelido de cartão", exact: true })
+        .click();
+      await recurring
+        .getByLabel("Novo apelido", { exact: true })
+        .fill("Compras pessoais e assinaturas da família");
+      await fit(page, width + "/" + theme + "/recurrence-credit-form");
+      await page.screenshot({
+        animations: "disabled",
+        path: out + "/" + width + "-" + theme + "-recurrence-form.png",
+      });
+      await page.keyboard.press("Escape");
       await page
         .locator(".topbar")
         .getByRole("button", { name: "Preferências", exact: true })
@@ -206,6 +231,20 @@ try {
         animations: "disabled",
         path: out + "/" + width + "-" + theme + "-text-200.png",
       });
+      await page.keyboard.press("Escape");
+      await navigate(page, "Recorrentes", mobile);
+      await page
+        .getByRole("button", { name: "Nova recorrente", exact: true })
+        .click();
+      await page
+        .getByRole("dialog")
+        .getByLabel("Pagamento", { exact: true })
+        .selectOption("credit");
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: "Novo apelido de cartão", exact: true })
+        .click();
+      await fit(page, width + "/" + theme + "/text-200/recurrence-credit-form");
       await page.keyboard.press("Escape");
       await page.evaluate(() => (document.documentElement.style.fontSize = ""));
     }

@@ -6,7 +6,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  CreditCard,
   Download,
   House,
   Moon,
@@ -55,8 +54,7 @@ import type { Page, Loader, InvoiceLoader } from "./views/types";
 const navigation = [
   { id: "home", title: "Início", icon: House },
   { id: "transactions", title: "Transações", icon: Wallet },
-  { id: "cards", title: "Cartões", icon: CreditCard },
-  { id: "recurrences", title: "Recorrências", icon: Repeat2 },
+  { id: "recurrences", title: "Recorrentes", icon: Repeat2 },
   { id: "reports", title: "Relatórios", icon: ChartNoAxesCombined },
 ] as const;
 export function FinanceApp({
@@ -174,6 +172,11 @@ export function FinanceApp({
     },
     [repository, commit],
   );
+  const createCard = async (name: string) => {
+    const id = crypto.randomUUID();
+    await mutate({ action: "card", payload: { id, name } });
+    return id;
+  };
   const save = async (mutation: Mutation) => {
     await mutate(mutation);
     setEditor(null);
@@ -301,8 +304,11 @@ export function FinanceApp({
     setPageFilters({});
     window.scrollTo({ top: 0, behavior: "instant" });
   };
-  const edit = (t: Transaction) => setEditor({ type: "transaction", value: t });
+  const edit = (t: Transaction) => {
+    if (t.kind !== "transfer") setEditor({ type: "transaction", value: t });
+  };
   const reuse = (t: Transaction) => {
+    if (t.kind === "transfer") return;
     const { id: _id, ...copy } = t;
     void _id;
     setEditor({
@@ -346,12 +352,13 @@ export function FinanceApp({
           editor.type === "transaction" && editor.value?.id
             ? "Editar lançamento"
             : "Novo lançamento",
-        card: "Seu cartão",
+        card: "Apelido do cartão",
         category: "Categoria",
         account: "Conta",
         budget: "Orçamento do mês",
-        recurrence: "Recorrência",
-        payment: "Pagar fatura",
+        recurrence: "Compra recorrente",
+        recurrence_type: "Tipo de recorrente",
+        payment: "Registrar pagamento",
       }[editor.type]
     : "";
   return (
@@ -577,24 +584,27 @@ export function FinanceApp({
               initialFilters={pageFilters}
             />
           )}
-          {page === "cards" && (
-            <Cards
-              s={s}
-              open={setEditor}
-              detail={(card, month) => setInvoice({ card, month })}
-              history={(card) => {
-                setPageFilters({ card: card.id, from: "", to: "" });
-                setPage("transactions");
-              }}
-            />
-          )}
           {page === "recurrences" && (
-            <Recurrences
-              s={s}
-              open={setEditor}
-              mutate={safeMutate}
-              history={setHistory}
-            />
+            <>
+              <Recurrences
+                s={s}
+                open={setEditor}
+                mutate={safeMutate}
+                history={setHistory}
+              />
+              <div className="credit-section">
+                <h2>Apelidos no crédito</h2>
+                <Cards
+                  s={s}
+                  open={setEditor}
+                  detail={(card, month) => setInvoice({ card, month })}
+                  history={(card) => {
+                    setPageFilters({ card: card.id, from: "", to: "" });
+                    setPage("transactions");
+                  }}
+                />
+              </div>
+            </>
           )}
           {page === "reports" && <Reports s={s} />}
           {page === "budgets" && (
@@ -721,10 +731,16 @@ export function FinanceApp({
               editor={editor}
               save={save}
               suggest={suggest}
+              createCard={createCard}
             />
           ) : (
             <>
-              <EntityForm snapshot={s} editor={editor} save={save} />
+              <EntityForm
+                snapshot={s}
+                editor={editor}
+                save={save}
+                createCard={createCard}
+              />
               {editor.type === "card" && editor.value && (
                 <button
                   className="text-button danger-text"
@@ -736,13 +752,13 @@ export function FinanceApp({
                         payload: { entity: "card", id: editor.value!.id },
                       });
                       setEditor(null);
-                      setToast({ text: "Cartão excluído." });
+                      setToast({ text: "Apelido excluído." });
                     } catch (e) {
                       setToast({ text: (e as Error).message, error: true });
                     }
                   }}
                 >
-                  Excluir cartão
+                  Excluir apelido
                 </button>
               )}
             </>
@@ -918,6 +934,50 @@ export function FinanceApp({
             </section>
             <section>
               <div className="between">
+                <h3>Tipos de recorrentes</h3>
+                <button
+                  className="text-button"
+                  onClick={() => setEditor({ type: "recurrence_type" })}
+                >
+                  <Plus size={15} />
+                  Novo tipo
+                </button>
+              </div>
+              <p>
+                Assinatura, seguro, plano ou o que fizer sentido para você.
+                Tipos em uso precisam ser trocados nas recorrentes antes de
+                excluir.
+              </p>
+              <div className="settings-list">
+                {s.recurrence_types.map((t) => (
+                  <div key={t.id}>
+                    <button
+                      aria-label={`Editar tipo ${t.name}`}
+                      onClick={() =>
+                        setEditor({ type: "recurrence_type", value: { ...t } })
+                      }
+                    >
+                      <Repeat2 size={18} />
+                      {t.name}
+                    </button>
+                    <button
+                      className="icon-button"
+                      aria-label={`Excluir tipo ${t.name}`}
+                      onClick={() => {
+                        void safeMutate({
+                          action: "delete",
+                          payload: { entity: "recurrence_type", id: t.id },
+                        });
+                      }}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section>
+              <div className="between">
                 <h3>Contas</h3>
                 <button
                   className="text-button"
@@ -961,9 +1021,9 @@ export function FinanceApp({
               </h3>
               <p>
                 CSV exporta os lançamentos. JSON inclui cartões, parcelas,
-                pagamentos, recorrências, categorias e orçamentos. O arquivo
-                contém informações financeiras sensíveis; guarde-o em um lugar
-                seguro.
+                pagamentos, recorrentes, seus tipos, categorias e orçamentos. O
+                arquivo contém informações financeiras sensíveis; guarde-o em um
+                lugar seguro.
               </p>
               <div className="dialog-actions">
                 <button

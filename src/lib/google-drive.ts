@@ -3,7 +3,7 @@ import { MAX_BACKUP_BYTES, type Backup } from "./backup";
 
 export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
 const API = "https://www.googleapis.com/drive/v3";
-const marker = "manin-backup-v2";
+const marker = "manin-backup-v3";
 const fileSchema = z.object({
   id: z.string().regex(/^[A-Za-z0-9_-]{1,256}$/),
   name: z.string().min(1).max(250),
@@ -13,7 +13,7 @@ const fileSchema = z.object({
     .string()
     .regex(/^\d+$/)
     .refine((v) => Number(v) <= MAX_BACKUP_BYTES),
-  appProperties: z.object({ maninFormat: z.literal(marker) }),
+  appProperties: z.object({ maninFormat: z.enum([marker, "manin-backup-v2"]) }),
 });
 export type DriveFile = z.infer<typeof fileSchema>;
 interface TokenResponse {
@@ -196,9 +196,9 @@ export class GoogleDrive {
       const params = new URLSearchParams({
         spaces: "appDataFolder",
         q:
-          "trashed = false and appProperties has { key='maninFormat' and value='" +
+          "trashed = false and (appProperties has { key='maninFormat' and value='" +
           marker +
-          "' }",
+          "' } or appProperties has { key='maninFormat' and value='manin-backup-v2' })",
         fields:
           "nextPageToken,files(id,name,mimeType,size,createdTime,appProperties)",
         orderBy: "createdTime desc",
@@ -305,6 +305,7 @@ export class GoogleDrive {
     if (
       !file.success ||
       file.data.id !== sent.data.id ||
+      file.data.appProperties.maninFormat !== marker ||
       Number(file.data.size) !== bytes
     )
       throw new Error(

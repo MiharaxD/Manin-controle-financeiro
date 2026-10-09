@@ -1,6 +1,7 @@
 import { addMonths, monthOf, schedule, todaySP } from "./finance";
 
 import type { DemoData, Transaction } from "./types";
+import { createRecurrenceTypes } from "./initial-data";
 const uid = () => crypto.randomUUID();
 export function createDemo(today = todaySP()): DemoData {
   const month = monthOf(today),
@@ -63,29 +64,18 @@ export function createDemo(today = todaySP()): DemoData {
     cards: [
       {
         id: uid(),
-        name: "Meu Nubank",
-        institution: "Nubank",
-        color: "#514079",
-        last_four: "4829",
-        closing_day: 25,
-        due_day: 2,
-        limit_cents: 1000000,
+        name: "Compras do dia a dia",
       },
       {
         id: uid(),
-        name: "Inter Black",
-        institution: "Inter",
-        color: "#293d36",
-        last_four: "9031",
-        closing_day: 18,
-        due_day: 25,
-        limit_cents: 1500000,
+        name: "Compras maiores",
       },
     ],
     transactions: [],
     installments: [],
     payments: [],
     recurrences: [],
+    recurrence_types: createRecurrenceTypes(),
     budgets: [],
   };
   const add = (
@@ -114,6 +104,7 @@ export function createDemo(today = todaySP()): DemoData {
       recurrence_id: null,
       occurrence_date: null,
       deleted_at: null,
+      credit_month: method === "credit" ? monthOf(when) : null,
     };
     data.transactions.push(t);
     if (method === "credit")
@@ -154,6 +145,7 @@ export function createDemo(today = todaySP()): DemoData {
     data.recurrences.push({
       id: uid(),
       name,
+      type_id: data.recurrence_types[0].id,
       amount_cents: amount,
       category_id: data.categories[cat].id,
       payment_method: "credit",

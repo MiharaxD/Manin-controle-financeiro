@@ -9,6 +9,7 @@ import { createBackup, parseBackup } from "../src/lib/backup";
 import { validateData } from "../src/lib/records";
 import { demoSnapshot, todaySP } from "../src/lib/finance";
 import type { FinancialData, Mutation } from "../src/lib/types";
+import { createLegacyData } from "./fixtures/legacy-data";
 
 function tx(data: FinancialData, amount = 1234): Mutation {
   return {
@@ -262,7 +263,7 @@ test("falha de gravação aborta a transação e mantém o conjunto anterior", a
   s.close();
 });
 test("exportação antiga do Supabase migra sem trocar IDs e rejeita mistura de usuários", () => {
-  const data = createDemo("2026-10-08"),
+  const data = createLegacyData(),
     owner = crypto.randomUUID();
   const legacy: Record<string, unknown> = {
     version: 1,
@@ -274,7 +275,13 @@ test("exportação antiga do Supabase migra sem trocar IDs e rejeita mistura de 
     );
   const migrated = parseBackup(JSON.stringify(legacy));
   assert.equal(migrated.source, "supabase-v1");
-  assert.deepEqual(migrated.data, data);
+  assert.deepEqual(migrated.data.installments, data.installments);
+  assert.deepEqual(migrated.data.payments, data.payments);
+  assert.deepEqual(
+    migrated.data.cards,
+    data.cards.map((c) => ({ id: c.id, name: c.name })),
+  );
+  assert.equal(migrated.data.transactions.length, data.transactions.length);
   (legacy.accounts as Record<string, unknown>[])[0].user_id =
     crypto.randomUUID();
   assert.throws(
@@ -287,6 +294,7 @@ test("recorrência recupera o dia 31 após fevereiro bissexto e preserva ocorrê
   const recurrence = {
     id: crypto.randomUUID(),
     name: "Mensal teste",
+    type_id: initial.recurrence_types[0].id,
     amount_cents: 101,
     category_id: initial.categories[0].id,
     payment_method: "pix",
@@ -378,7 +386,7 @@ test("pagamentos acima do saldo e referências inválidas nunca são persistidos
   assert.deepEqual(await s.read(), before);
   s.close();
 });
-test("backup v2 sem parcelas não perde silenciosamente compromissos de crédito", () => {
+test("backup v3 sem parcelas não perde silenciosamente compromissos de crédito", () => {
   const data = createDemo("2026-10-08"),
     backup = createBackup(data, crypto.randomUUID());
   backup.data.installments = [];
@@ -390,7 +398,7 @@ test("leitura local incompatível não sobrescreve conteúdo existente", async (
   await s.read();
   s.close();
   await new Promise<void>((resolve, reject) => {
-    const req = factory.open("manin-device-v1", 1);
+    const req = factory.open("manin-device-v1", 2);
     req.onerror = () => reject(req.error);
     req.onsuccess = () => {
       const db = req.result,
@@ -408,7 +416,7 @@ test("leitura local incompatível não sobrescreve conteúdo existente", async (
   const reader = store("local", factory);
   await assert.rejects(reader.read(), /incompatível ou danificado/);
   await new Promise<void>((resolve) => {
-    const req = factory.open("manin-device-v1", 1);
+    const req = factory.open("manin-device-v1", 2);
     req.onsuccess = () => {
       const db = req.result,
         get = db.transaction("datasets").objectStore("datasets").get("local");

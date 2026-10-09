@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { dataSchema, timestamp, validateData } from "./records";
 import type { FinancialData } from "./types";
+import { migratePreviousData } from "./migrations";
 
 export const MAX_BACKUP_BYTES = 20 * 1024 * 1024;
 export const backupSchema = z.strictObject({
   format: z.literal("manin-backup"),
-  version: z.literal(2),
+  version: z.literal(3),
   dataset_id: z.uuid(),
   source: z.enum(["local", "demo", "supabase-v1"]),
   exported_at: timestamp,
@@ -21,7 +22,7 @@ export function createBackup(
 ): Backup {
   return backupSchema.parse({
     format: "manin-backup",
-    version: 2,
+    version: 3,
     dataset_id: datasetId,
     source,
     exported_at: new Date().toISOString(),
@@ -47,7 +48,21 @@ export function parseBackup(
   if (!version.success)
     throw new Error("Este arquivo não é um backup do Manin.");
   if (version.data.version === 1) backup = migrateLegacy(input);
-  else {
+  else if (version.data.version === 2) {
+    const old = backupSchema
+      .omit({ version: true, data: true })
+      .extend({ version: z.literal(2), data: z.unknown() })
+      .safeParse(input);
+    if (!old.success)
+      throw new Error(
+        "Backup antigo inválido. Seus dados atuais foram mantidos.",
+      );
+    backup = {
+      ...old.data,
+      version: 3,
+      data: migratePreviousData(old.data.data),
+    };
+  } else {
     const result = backupSchema.safeParse(input);
     if (!result.success)
       throw new Error(
@@ -100,7 +115,7 @@ function migrateLegacy(input: unknown): Backup {
         ),
       );
     });
-  const data = validateData({
+  const data = migratePreviousData({
     accounts: clean(legacy.data.accounts),
     categories: clean(legacy.data.categories),
     cards: clean(legacy.data.cards),
@@ -114,7 +129,7 @@ function migrateLegacy(input: unknown): Backup {
     throw new Error("O backup mistura dados de proprietários diferentes.");
   return {
     format: "manin-backup",
-    version: 2,
+    version: 3,
     dataset_id: crypto.randomUUID(),
     source: "supabase-v1",
     exported_at: legacy.data.exported_at,
@@ -123,5 +138,5 @@ function migrateLegacy(input: unknown): Backup {
 }
 export function backupSummary(backup: Backup) {
   const d = backup.data;
-  return `${d.transactions.length} lançamentos, ${d.installments.length} parcelas, ${d.payments.length} pagamentos, ${d.accounts.length} contas, ${d.cards.length} cartões, ${d.recurrences.length} recorrências, ${d.categories.length} categorias e ${d.budgets.length} orçamentos.`;
+  return `${d.transactions.length} lançamentos, ${d.installments.length} parcelas, ${d.payments.length} pagamentos, ${d.accounts.length} contas, ${d.cards.length} apelidos de cartões, ${d.recurrences.length} recorrentes, ${d.recurrence_types.length} tipos, ${d.categories.length} categorias e ${d.budgets.length} orçamentos.`;
 }

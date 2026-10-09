@@ -133,21 +133,21 @@ export function Dashboard({
             </div>
           </div>
           <p className="hint">
-            Entradas menos saídas pagas. Crédito entra no caixa quando a fatura
-            é paga.
+            Entradas menos saídas pagas. Crédito entra no caixa quando você
+            registra o pagamento.
           </p>
         </section>
       </div>
       <div className="metric-grid">
-        <button className="metric" onClick={() => onPage("cards")}>
+        <button className="metric" onClick={() => onPage("recurrences")}>
           <span>
             <CreditCard size={18} />
-            Faturas do mês <ArrowRight size={16} />
+            Crédito do mês <ArrowRight size={16} />
           </span>
           <strong>{money(bills)}</strong>
           <small>Ainda a pagar</small>
         </button>
-        <button className="metric" onClick={() => onPage("cards")}>
+        <button className="metric" onClick={() => onPage("recurrences")}>
           <span>
             <Repeat2 size={18} />
             Parcelas futuras <ArrowRight size={16} />

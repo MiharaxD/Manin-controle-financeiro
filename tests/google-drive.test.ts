@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { GoogleDrive, DRIVE_SCOPE } from "../src/lib/google-drive";
-import { createBackup, MAX_BACKUP_BYTES } from "../src/lib/backup";
+import { createBackup, parseBackup, MAX_BACKUP_BYTES } from "../src/lib/backup";
 import { createEmptyData } from "../src/lib/initial-data";
+import { createLegacyData } from "./fixtures/legacy-data";
 
 type Call = { url: string; options: RequestInit | undefined };
 const sample = () => createBackup(createEmptyData(), crypto.randomUUID());
@@ -12,7 +13,7 @@ const file = (bytes: number) => ({
   mimeType: "application/json",
   createdTime: "2026-10-09T12:00:00Z",
   size: String(bytes),
-  appProperties: { maninFormat: "manin-backup-v2" },
+  appProperties: { maninFormat: "manin-backup-v3" },
 });
 const json = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), {
@@ -116,6 +117,7 @@ test("upload só retorna comprovante depois de confirmação de ID, tamanho e me
     const upload = m.calls.find((c) => c.url.includes("/upload/"))!;
     const text = await (upload.options!.body as Blob).text();
     assert.ok(text.includes('"parents":["appDataFolder"]'));
+    assert.ok(text.includes('"maninFormat":"manin-backup-v3"'));
     assert.ok(text.includes("\r\nContent-Type: application/json"));
     assert.ok(!text.includes("\\r\\nContent-Type"));
     assert.ok(
@@ -176,6 +178,7 @@ test("lista fica na pasta do app e restauração recusa IDs não listados", asyn
     const listed = new URL(m.calls.find((c) => c.url.includes("/files?"))!.url);
     assert.equal(listed.searchParams.get("spaces"), "appDataFolder");
     assert.ok(listed.searchParams.get("q")!.includes("manin-backup-v2"));
+    assert.ok(listed.searchParams.get("q")!.includes("manin-backup-v3"));
     await assert.rejects(d.download("unlisted_file"), /listado/);
     assert.equal(await d.download("file_A"), text);
   } finally {
@@ -197,6 +200,43 @@ test("token expirado pela API desconecta e exige ação do usuário", async () =
     await assert.rejects(d.list(), /expirou/);
     assert.equal(d.connected, false);
     await assert.rejects(d.list(), /Conecte novamente/);
+  } finally {
+    d.disconnect();
+  }
+});
+
+test("Drive mantém acesso aos backups v2 e o parser preserva o histórico ao restaurar", async () => {
+  oauth();
+  const data = createLegacyData(),
+    text = JSON.stringify({
+      format: "manin-backup",
+      version: 2,
+      source: "local",
+      dataset_id: crypto.randomUUID(),
+      exported_at: new Date().toISOString(),
+      data,
+    });
+  const meta = {
+    ...file(new TextEncoder().encode(text).byteLength),
+    appProperties: { maninFormat: "manin-backup-v2" },
+  };
+  const m = mock((url) =>
+    url.includes("/about")
+      ? json({ user: { emailAddress: "local@example.com" } })
+      : url.includes("/files?")
+        ? json({ files: [meta] })
+        : url.includes("alt=media")
+          ? new Response(text)
+          : json(meta),
+  );
+  const d = new GoogleDrive("public-client", m.request);
+  try {
+    await d.connect();
+    await d.list();
+    const backup = parseBackup(await d.download("file_A"));
+    assert.equal(backup.version, 3);
+    assert.deepEqual(backup.data.installments, data.installments);
+    assert.deepEqual(backup.data.payments, data.payments);
   } finally {
     d.disconnect();
   }

@@ -1,5 +1,4 @@
 "use client";
-import type { CSSProperties } from "react";
 import {
   CreditCard,
   Ellipsis,
@@ -7,7 +6,7 @@ import {
   ArrowRight,
   ChevronRight,
 } from "lucide-react";
-import { money, formatDate, monthLabel } from "@/lib/finance";
+import { money, monthLabel } from "@/lib/finance";
 import type { Card, Snapshot } from "@/lib/types";
 import type { Editor } from "../forms";
 import { Panel, Empty } from "./shared";
@@ -25,28 +24,23 @@ export function Cards({
   return (
     <>
       <div className="section-intro">
-        <p>Compras, faturas e parcelas. Tudo no seu ciclo.</p>
+        <p>
+          Um apelido para organizar compras e recorrentes no crédito. Parcelas
+          seguem os meses da compra.
+        </p>
         <button
           className="button primary"
           onClick={() => open({ type: "card" })}
         >
           <Plus size={18} />
-          Novo cartão
+          Novo apelido
         </button>
       </div>
       {!s.cards.length ? (
-        <Panel title="Seus cartões">
+        <Panel title="Seus apelidos">
           <Empty
-            title="Seu primeiro cartão"
-            text="Informe só os dias do ciclo. Sem número completo ou CVV."
-            action={
-              <button
-                className="button primary"
-                onClick={() => open({ type: "card" })}
-              >
-                Cadastrar cartão
-              </button>
-            }
+            title="Como você chama seu cartão?"
+            text="Crie só um apelido. Você também pode criá-lo ao cadastrar uma recorrente ou uma compra."
           />
         </Panel>
       ) : (
@@ -54,91 +48,54 @@ export function Cards({
           {s.cards.map((c) => {
             const invoices = s.invoices.filter((i) => i.card_id === c.id),
               current = invoices.find((i) => i.billing_month === s.month),
-              committed = invoices.reduce((n, i) => n + i.remaining, 0);
+              committed = invoices.reduce((n, i) => n + i.remaining, 0),
+              recurring = s.recurrences.filter(
+                (r) => r.card_id === c.id && r.status === "active",
+              ).length;
             return (
               <section className="card-panel" key={c.id}>
-                <div
-                  className="credit-card"
-                  style={{ "--card-color": c.color } as CSSProperties}
-                >
-                  <div className="between">
-                    <span className="card-institution">
-                      {c.institution || "Meu cartão"}
-                    </span>
-                    <button
-                      className="icon-button"
-                      aria-label={`Editar ${c.name}`}
-                      onClick={() => open({ type: "card", value: c })}
-                    >
-                      <Ellipsis size={22} />
-                    </button>
-                  </div>
-                  <div className="chip-art" aria-hidden="true">
-                    <span />
-                    <span />
-                  </div>
-                  <div className="between">
-                    <strong>{c.name}</strong>
-                    <span className="card-digits">
-                      •••• {c.last_four || "••••"}
-                    </span>
-                  </div>
+                <div className="nickname-card">
+                  <CreditCard size={25} />
+                  <strong>{c.name}</strong>
+                  <button
+                    className="icon-button"
+                    aria-label={`Editar ${c.name}`}
+                    onClick={() => open({ type: "card", value: c })}
+                  >
+                    <Ellipsis size={22} />
+                  </button>
                 </div>
                 <div className="card-body">
                   <span className="muted">
-                    Fatura de {monthLabel(s.month, true)}
+                    Crédito de {monthLabel(s.month, true)}
                   </span>
                   <div className="invoice-amount">
                     {money(current?.remaining ?? 0)}
                   </div>
-                  <div className="between small">
-                    <span className="muted">
-                      {current
-                        ? `Vence ${formatDate(current.due_date)}`
-                        : `Vencimento: dia ${c.due_day}`}
-                    </span>
-                    <span className="badge">
-                      {current && current.paid >= current.total
-                        ? "Paga"
-                        : current?.paid
-                          ? "Parcialmente paga"
-                          : "Em aberto"}
-                    </span>
-                  </div>
+                  <span className="badge">
+                    {current && current.paid >= current.total
+                      ? "Pago"
+                      : current?.paid
+                        ? "Parcialmente pago"
+                        : "Em aberto"}
+                  </span>
                   <div className="card-meta">
                     <div>
-                      <span>Comprometido</span>
+                      <span>Total em aberto</span>
                       <strong>{money(committed)}</strong>
                     </div>
                     <div>
-                      <span>Disponível</span>
-                      <strong>
-                        {c.limit_cents === null
-                          ? "Sem limite informado"
-                          : money(Math.max(0, c.limit_cents - committed))}
-                      </strong>
+                      <span>Recorrentes ativas</span>
+                      <strong>{recurring}</strong>
                     </div>
                   </div>
-                  {c.limit_cents !== null && (
-                    <div className="progress">
-                      <span
-                        style={{
-                          width: `${Math.min(100, (committed * 100) / c.limit_cents)}%`,
-                        }}
-                      />
-                    </div>
-                  )}
-                  {c.limit_cents !== null && committed > c.limit_cents && (
-                    <p className="warning-text small">
-                      Compromissos acima do limite informado.
-                    </p>
-                  )}
                   <div className="card-actions">
                     <button
                       className="button secondary"
                       onClick={() => detail(c, s.month)}
                     >
-                      Ver fatura <ArrowRight size={15} />
+                      Ver compras do mês
+                      <ArrowRight size={15} />
                     </button>
                     {current && current.remaining > 0 && (
                       <button
@@ -155,7 +112,8 @@ export function Cards({
                     className="text-button card-history"
                     onClick={() => history(c)}
                   >
-                    Histórico de compras <ArrowRight size={14} />
+                    Histórico de compras
+                    <ArrowRight size={14} />
                   </button>
                 </div>
               </section>
@@ -163,7 +121,7 @@ export function Cards({
           })}
         </div>
       )}
-      <Panel title="Próximas faturas">
+      <Panel title="Próximas parcelas">
         <div className="future-invoices">
           {s.invoices
             .filter((i) => i.billing_month > s.month && i.remaining > 0)
@@ -192,8 +150,9 @@ export function Cards({
           ) && <p className="muted">Nenhuma parcela futura registrada.</p>}
         </div>
         <p className="hint">
-          Total comprometido inclui todas as parcelas em aberto. Faturas
-          anteriores ficam disponíveis em “Ver fatura”.
+          O total inclui compras e parcelas em aberto. Os meses antigos
+          continuam disponíveis em “Ver compras do mês”. O Manin não acompanha
+          fechamento ou vencimento bancário.
         </p>
       </Panel>
     </>

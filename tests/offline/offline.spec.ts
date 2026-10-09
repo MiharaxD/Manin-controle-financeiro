@@ -111,12 +111,13 @@ test("PWA cria, edita, consulta, exclui e restaura backup offline com servidor d
     await expect(page.locator(".transaction-row")).toHaveCount(0);
     await page.getByRole("button", { name: "Desfazer", exact: true }).click();
     await expect(page.locator(".transaction-row")).toHaveCount(1);
-    await nav(page, "Cartões");
-    await page.getByRole("button", { name: "Novo cartão" }).click();
+    await nav(page, "Recorrentes");
+    await page.getByRole("button", { name: "Novo apelido" }).click();
     dialog = page.getByRole("dialog");
-    await dialog.getByLabel("Nome", { exact: true }).fill("Cartão offline");
-    await dialog.getByLabel("Dia do fechamento").fill("31");
-    await dialog.getByLabel("Dia do vencimento").fill("1");
+    await dialog
+      .getByLabel("Apelido do cartão", { exact: true })
+      .fill("Cartão offline");
+
     await dialog.getByRole("button", { name: "Salvar", exact: true }).click();
     await page
       .locator(page.viewportSize()!.width <= 760 ? ".fab" : ".desktop-add")
@@ -129,9 +130,9 @@ test("PWA cria, edita, consulta, exclui e restaura backup offline com servidor d
     await dialog
       .getByRole("button", { name: "Salvar lançamento", exact: true })
       .click();
-    await page.getByRole("button", { name: /Ver fatura/ }).click();
+    await page.getByRole("button", { name: /Ver compras do mês/ }).click();
     dialog = page.getByRole("dialog");
-    await dialog.getByLabel("Competência da fatura").selectOption({ index: 1 });
+    await dialog.getByLabel("Mês do crédito").selectOption({ index: 1 });
     await dialog
       .getByRole("button", { name: "Registrar pagamento", exact: true })
       .click();
@@ -152,6 +153,55 @@ test("PWA cria, edita, consulta, exclui e restaura backup offline com servidor d
       .getByRole("button", { name: "Preferências", exact: true })
       .click();
     dialog = page.getByRole("dialog");
+    await dialog
+      .getByRole("button", { name: "Novo tipo", exact: true })
+      .click();
+    let editor = page.getByRole("dialog", {
+      name: "Tipo de recorrente",
+      exact: true,
+    });
+    await editor.getByLabel("Nome do tipo").fill("Offline personalizado");
+    await editor.getByRole("button", { name: "Salvar", exact: true }).click();
+    dialog = page.getByRole("dialog", {
+      name: "Seu espaço, do seu jeito",
+      exact: true,
+    });
+    await expect(
+      dialog.getByRole("button", {
+        name: "Editar tipo Offline personalizado",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await dialog.getByRole("button", { name: "Fechar", exact: true }).click();
+    await nav(page, "Recorrentes");
+    await page
+      .getByRole("button", { name: "Nova recorrente", exact: true })
+      .click();
+    editor = page.getByRole("dialog", {
+      name: "Compra recorrente",
+      exact: true,
+    });
+    await editor.getByLabel("Nome", { exact: true }).fill("Seguro offline");
+    await editor.getByLabel("Valor da cobrança").fill("1,01");
+    await editor
+      .getByLabel("Tipo de recorrente")
+      .selectOption({ label: "Offline personalizado" });
+    await editor
+      .getByLabel("Pagamento", { exact: true })
+      .selectOption("credit");
+    await editor.getByLabel("Estado").selectOption("paused");
+    await editor.getByRole("button", { name: "Salvar", exact: true }).click();
+    await expect(page.locator(".recurrence-row")).toContainText(
+      "Crédito · Cartão offline",
+    );
+    await page
+      .locator(".topbar")
+      .getByRole("button", { name: "Preferências", exact: true })
+      .click();
+    dialog = page.getByRole("dialog", {
+      name: "Seu espaço, do seu jeito",
+      exact: true,
+    });
     const downloading = page.waitForEvent("download");
     await dialog
       .getByRole("button", { name: "Exportar JSON", exact: true })
@@ -162,6 +212,13 @@ test("PWA cria, edita, consulta, exclui e restaura backup offline com servidor d
     expect(backup.data.transactions).toHaveLength(2);
     expect(backup.data.installments).toHaveLength(3);
     expect(backup.data.payments).toHaveLength(1);
+    expect(backup.version).toBe(3);
+    expect(backup.data.recurrences).toHaveLength(1);
+    expect(
+      backup.data.recurrence_types.find(
+        (t) => t.name === "Offline personalizado",
+      )?.id,
+    ).toBe(backup.data.recurrences[0].type_id);
     await dialog.getByLabel("Digite EXCLUIR para confirmar").fill("EXCLUIR");
     await dialog
       .getByRole("button", { name: "Excluir todos os dados", exact: true })
@@ -171,13 +228,11 @@ test("PWA cria, edita, consulta, exclui e restaura backup offline com servidor d
         .getByRole("status")
         .filter({ hasText: "Dados financeiros excluídos." }),
     ).toBeVisible();
-    await dialog
-      .getByLabel("Arquivo de backup JSON")
-      .setInputFiles({
-        name: "offline.json",
-        mimeType: "application/json",
-        buffer: Buffer.from(text),
-      });
+    await dialog.getByLabel("Arquivo de backup JSON").setInputFiles({
+      name: "offline.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(text),
+    });
     const confirmation = page.getByRole("dialog", {
       name: "Substituir dados locais?",
       exact: true,
@@ -189,6 +244,11 @@ test("PWA cria, edita, consulta, exclui e restaura backup offline com servidor d
     await dialog.getByRole("button", { name: "Fechar", exact: true }).click();
     await page.reload();
     await expect(page.locator(".transaction-row")).toHaveCount(2);
+    await nav(page, "Recorrentes");
+    await expect(page.locator(".recurrence-row")).toContainText(
+      "Offline personalizado",
+    );
+    await expect(page.locator(".recurrence-row")).toContainText("Pausada");
     await page.goto("http://localhost:" + port + "/login/");
     await expect(page.getByRole("heading", { level: 2 })).toContainText(
       "neste dispositivo",

@@ -19,7 +19,7 @@ No Windows desta máquina, dentro da pasta do projeto, também funciona:
 
 O iniciador usa o Node já instalado pelo Codex sem depender de npm no terminal. As dependências precisam estar instaladas. Se necessário, o pnpm desta máquina está em C:\Users\YURI\.cache\codex-runtimes\codex-primary-runtime\dependencies\bin\fallback\pnpm.cmd.
 
-Abra http://localhost:3000 para seu espaço pessoal. Ele começa sem lançamentos, cartões, pagamentos, recorrências ou orçamentos fictícios. Existem apenas categorias e duas contas vazias editáveis para facilitar o primeiro registro.
+Abra http://localhost:3000 para seu espaço pessoal. Ele começa sem lançamentos, cartões, pagamentos, recorrentes ou orçamentos fictícios. Existem apenas categorias, tipos de recorrentes e duas contas vazias editáveis para facilitar o primeiro registro.
 
 A demonstração em /demo/ existe somente em desenvolvimento e usa outro conjunto de dados, separado do pessoal. Um backup marcado como demonstração não pode substituir dados pessoais. A publicação não cria registros fictícios.
 
@@ -49,13 +49,21 @@ No iPhone, abra a publicação HTTPS no Safari, espere a primeira abertura e adi
 
 ## O que funciona
 
-Dashboard mensal; despesas, receitas e transferências; criação, edição, consulta, busca/filtros e exclusão com desfazer; categorias/subcategorias, contas, cartões, faturas, parcelas e pagamentos; recorrências com pausa, cancelamento, histórico e conciliação; orçamentos; relatórios de seis meses; temas claro/escuro; CSV; backup/restauração JSON; backup manual opcional no Drive.
+Dashboard mensal; despesas e receitas; criação, edição, consulta, busca/filtros e exclusão com desfazer; categorias/subcategorias, contas, apelidos de cartões, parcelas e pagamentos; recorrentes com pausa, cancelamento, histórico e conciliação; orçamentos; relatórios de seis meses; temas claro/escuro; CSV; backup/restauração JSON; backup manual opcional no Drive.
+
+Em **Recorrentes**, compras que se repetem e apelidos de cartões ficam juntos. Cada recorrente tem um tipo (Assinatura, Seguro, Plano, Conta, Mensalidade ou Outros) e pagamento por crédito, Pix, débito ou dinheiro. No crédito, escolha um apelido ou crie um ali mesmo, sem perder o formulário. Cartões guardam somente ID interno e apelido: nenhum campo de banco, número, dígitos, limite ou ciclo bancário.
+
+Em **Preferências → Tipos de recorrentes**, crie, renomeie ou exclua tipos personalizados. Um tipo em uso só pode ser excluído depois de trocado nas recorrentes. Os filtros separam tipo e pagamento. Tipo descreve a recorrente; categoria continua organizando os gastos e orçamentos.
+
+Novas compras no crédito entram no mês da compra; parcelas seguintes entram nos meses seguintes. O total da compra continua sendo consumo na data da compra. Registrar um pagamento afeta o caixa e reduz o crédito em aberto sem contar a compra duas vezes. Os meses representam sua organização no Manin, sem acompanhar fechamento ou vencimento do banco.
+
+Atualização dos dados existentes é automática e atômica. Apelidos, IDs, compras, parcelas, pagamentos e competências antigas são preservados; informações antigas do cadastro do cartão são removidas. Recorrentes antigas recebem o tipo Outros, editável pela pessoa. Transferências antigas permanecem identificadas no histórico e nos backups, fora dos gastos/receitas, sem opção de criar, editar ou reutilizar uma transferência.
 
 A versão anterior exigia conta. Agora a página /login/ explica o espaço local; o app em / abre diretamente e apresenta o aviso de armazenamento no primeiro acesso.
 
 ## Backup JSON
 
-Em Preferências, use Exportar JSON. O arquivo contém format: manin-backup, version: 2, dataset_id, source, exported_at e data com accounts, categories, cards, transactions, installments, payments, recurrences e budgets. Inclui lançamentos excluídos, sem trocar IDs ou perder relações.
+Em Preferências, use Exportar JSON. O arquivo contém format: manin-backup, version: 3, dataset_id, source, exported_at e data com accounts, categories, cards, transactions, installments, payments, recurrences, recurrence_types e budgets. Inclui lançamentos excluídos, tipos personalizados e o mês inicial de cada compra no crédito, sem trocar IDs ou perder relações. Backups locais/Drive v2 e exportações completas v1 antigas também são aceitos: o conteúdo antigo é validado antes da migração e mantém as competências e pagamentos originais.
 
 Em Restaurar arquivo JSON, selecione o arquivo. O app valida **todo** o conteúdo, inclusive tipos, centavos inteiros, datas, IDs duplicados, referências, hierarquia, parcelas/total/calendário, pagamentos e ocorrências. Versões desconhecidas, conteúdo extra, arquivo truncado ou vínculos inválidos são recusados.
 
@@ -132,4 +140,4 @@ pnpm test:visual
 
 test:visual usa o servidor de desenvolvimento ativo. test:offline usa a compilação out/ e um servidor próprio, que é **desligado durante o teste**.
 
-Os testes cobrem regras de dinheiro/calendário, IndexedDB persistente/atômico, gravações concorrentes, isolamento pessoal/demo/origem, JSON v2 e migração v1, cancelamento, confirmação obsoleta, dados inválidos, falha de armazenamento e preservação do conjunto atual. Drive é verificado com respostas de API controladas, incluindo envio recusado, confirmação incompleta, acesso negado, expiração, limite e upload retomável. Verificação real do Google depende de cliente OAuth e consentimento; os testes não fingem que uma conta real foi conectada.
+Os testes cobrem regras de dinheiro/calendário, crédito pelo mês da compra, tipos personalizados, IndexedDB persistente/atômico, gravações concorrentes, isolamento pessoal/demo/origem, JSON v3 e migrações v1/v2, cancelamento, confirmação obsoleta, dados inválidos, falha de armazenamento e preservação do conjunto atual. Drive é verificado com respostas de API controladas, incluindo envio recusado, confirmação incompleta, acesso negado, expiração, limite, upload retomável e recuperação de arquivos v2. Verificação real do Google depende de cliente OAuth e consentimento; os testes não fingem que uma conta real foi conectada.

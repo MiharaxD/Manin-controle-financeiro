@@ -3,6 +3,7 @@ import { validateData, timestamp } from "./records";
 import { createEmptyData } from "./initial-data";
 import { createDemo } from "./demo";
 import { applyMutation, generateDue } from "./engine";
+import { migratePreviousData } from "./migrations";
 import { createBackup, parseBackup, type Backup } from "./backup";
 import type { FinancialData, Mutation } from "./types";
 
@@ -14,7 +15,7 @@ const receiptSchema = z.strictObject({
 });
 export type DriveReceipt = z.infer<typeof receiptSchema>;
 export interface LocalRecord {
-  version: 1;
+  version: 2;
   dataset_id: string;
   revision: number;
   data: FinancialData;
@@ -22,7 +23,7 @@ export interface LocalRecord {
   driveReceipts: DriveReceipt[];
 }
 const metadata = z.object({
-  version: z.literal(1),
+  version: z.union([z.literal(1), z.literal(2)]),
   dataset_id: z.uuid(),
   revision: z.number().int().nonnegative(),
   noticeAcknowledged: z.boolean(),
@@ -35,7 +36,14 @@ function validateRecord(value: unknown): LocalRecord {
     throw new Error(
       "Armazenamento local incompatível ou danificado. Nenhum dado foi substituído.",
     );
-  return { ...r.data, data: validateData(r.data.data) };
+  return {
+    ...r.data,
+    version: 2,
+    data:
+      r.data.version === 1
+        ? migratePreviousData(r.data.data)
+        : validateData(r.data.data),
+  };
 }
 function storageError(error: unknown): Error {
   if (error instanceof Error && !(error instanceof DOMException)) return error;
@@ -58,9 +66,11 @@ export class LocalStore {
         ),
       );
     return (this.db ??= new Promise((resolve, reject) => {
-      const request = this.factory.open(this.dbName, 1);
-      request.onupgradeneeded = () =>
-        request.result.createObjectStore("datasets");
+      const request = this.factory.open(this.dbName, 2);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains("datasets"))
+          request.result.createObjectStore("datasets");
+      };
       request.onerror = () => reject(storageError(request.error));
       request.onblocked = () =>
         reject(
@@ -83,7 +93,7 @@ export class LocalStore {
         "A demonstração está disponível somente em desenvolvimento.",
       );
     return {
-      version: 1,
+      version: 2,
       dataset_id: crypto.randomUUID(),
       revision: 0,
       data: this.mode === "demo" ? createDemo() : createEmptyData(),
@@ -109,7 +119,7 @@ export class LocalStore {
           next = validateRecord(change(structuredClone(current)));
           changed =
             get.result === undefined ||
-            JSON.stringify(next) !== JSON.stringify(current);
+            JSON.stringify(next) !== JSON.stringify(get.result);
           if (changed) {
             next.revision = current.revision + 1;
             store.put(next, this.mode);

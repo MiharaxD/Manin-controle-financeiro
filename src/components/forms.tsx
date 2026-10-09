@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, CreditCard, Repeat2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, CreditCard } from "lucide-react";
 import {
   money,
   moneyInput,
@@ -15,6 +15,7 @@ import type {
   Method,
   Mutation,
   Recurrence,
+  RecurrenceType,
   Snapshot,
   Transaction,
 } from "@/lib/types";
@@ -24,11 +25,129 @@ export type Editor =
   | { type: "card"; value?: Card }
   | { type: "category"; value?: Category }
   | {
-      type: "account" | "budget" | "recurrence";
+      type: "account" | "budget" | "recurrence" | "recurrence_type";
       value?: Record<string, unknown>;
     }
   | { type: "payment"; invoice: Invoice };
 type Save = (value: Mutation) => Promise<void>;
+type CreateCard = (name: string) => Promise<string>;
+function CardPicker({
+  cards,
+  value,
+  onChange,
+  createCard,
+}: {
+  cards: Card[];
+  value: string;
+  onChange: (id: string) => void;
+  createCard: CreateCard;
+}) {
+  const [adding, setAdding] = useState(false),
+    [name, setName] = useState(""),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  return (
+    <div className="card-picker">
+      <label>
+        Apelido do cartão
+        <select
+          aria-label="Apelido do cartão"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          required={!adding}
+        >
+          <option value="">Selecione um apelido</option>
+          {cards.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        className="text-button"
+        type="button"
+        onClick={() => {
+          setAdding(!adding);
+          setError("");
+        }}
+      >
+        {" "}
+        {adding ? "Cancelar novo apelido" : "Novo apelido de cartão"}
+      </button>
+      {adding && (
+        <div className="inline-card">
+          <label>
+            Novo apelido
+            <input
+              value={name}
+              maxLength={60}
+              placeholder="Ex.: Compras de casa"
+              onChange={(e) => setName(e.target.value)}
+            />
+          </label>
+          <button
+            className="button secondary"
+            type="button"
+            disabled={busy || !name.trim()}
+            onClick={async () => {
+              setBusy(true);
+              setError("");
+              try {
+                const id = await createCard(name.trim());
+                onChange(id);
+                setName("");
+                setAdding(false);
+              } catch (e) {
+                setError(
+                  e instanceof Error
+                    ? e.message
+                    : "Não foi possível criar o apelido.",
+                );
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy ? "Criando…" : "Criar apelido"}
+          </button>
+          <Failure message={error} />
+        </div>
+      )}
+      <p className="hint">Só um apelido para organizar suas compras.</p>
+    </div>
+  );
+}
+function RecurrenceTypePicker({
+  types,
+  defaultValue,
+  name = "type_id",
+}: {
+  types: RecurrenceType[];
+  defaultValue?: string;
+  name?: string;
+}) {
+  return (
+    <label>
+      Tipo de recorrente
+      <select
+        name={name}
+        defaultValue={defaultValue ?? types[0]?.id ?? ""}
+        required
+      >
+        <option value="" disabled>
+          Selecione um tipo
+        </option>
+        {types.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name}
+          </option>
+        ))}
+      </select>
+      <small>Você pode criar outros tipos nas Preferências.</small>
+    </label>
+  );
+}
 function Failure({ message }: { message: string }) {
   return message ? (
     <p role="alert" className="form-error">
@@ -41,16 +160,21 @@ export function TransactionForm({
   editor,
   save,
   suggest,
+  createCard,
 }: {
   snapshot: Snapshot;
   editor: Extract<Editor, { type: "transaction" }>;
   save: Save;
   suggest: (merchant: string, fallback: string) => Promise<string>;
+  createCard: CreateCard;
 }) {
   const original = editor.value,
     recurrence = editor.recurrence;
   const submissionId = useRef(original?.id ?? crypto.randomUUID());
-  const [kind, setKind] = useState(original?.kind ?? "expense");
+  const [kind, setKind] = useState<"expense" | "income">(
+    original?.kind === "income" ? "income" : "expense",
+  );
+  const [makeRecurring, setMakeRecurring] = useState(false);
   const [method, setMethod] = useState<Method>(
     original?.payment_method ?? recurrence?.payment_method ?? "pix",
   );
@@ -105,6 +229,7 @@ export function TransactionForm({
     };
   }, [merchant, manualCategory, suggest, s.transactions]);
   const reconcile = (id: string) => {
+    setMakeRecurring(false);
     setSelectedRecurrence(id);
     const r = s.recurrences.find((r) => r.id === id);
     if (!r) return;
@@ -134,19 +259,19 @@ export function TransactionForm({
           purchase_date: purchaseDate,
           description: String(form.get("description") ?? ""),
           merchant,
-          category_id: kind === "transfer" ? null : category || null,
+          category_id: category || null,
           payment_method: method,
           card_id: method === "credit" ? card || null : null,
           account_id: method === "credit" ? null : account || null,
-          destination_account_id:
-            kind === "transfer"
-              ? String(form.get("destination") || "") || null
-              : null,
+          destination_account_id: null,
           installments_count: method === "credit" ? count : 1,
           status: form.get("status") ?? "actual",
           recurrence_id: original?.recurrence_id ?? r?.id ?? null,
           occurrence_date: original?.occurrence_date ?? r?.next_date ?? null,
-          make_recurring: !!form.get("make_recurring"),
+          make_recurring: makeRecurring,
+          recurrence_type_id: makeRecurring
+            ? String(form.get("recurrence_type_id") || "") || null
+            : null,
         },
       };
       const parsed = mutationSchema.safeParse(value);
@@ -171,7 +296,7 @@ export function TransactionForm({
   return (
     <form onSubmit={submit} className="entry-form">
       <div className="segmented" aria-label="Tipo de lançamento">
-        {(["expense", "income", "transfer"] as const).map((k) => (
+        {(["expense", "income"] as const).map((k) => (
           <button
             type="button"
             key={k}
@@ -179,21 +304,22 @@ export function TransactionForm({
             aria-pressed={kind === k}
             onClick={() => {
               setKind(k);
+              if (k !== "expense") {
+                setMakeRecurring(false);
+                setSelectedRecurrence("");
+              }
               if (k !== "expense" && method === "credit") setMethod("pix");
             }}
           >
             {k === "expense" ? (
               <ArrowUpRight size={16} />
-            ) : k === "income" ? (
-              <ArrowDownLeft size={16} />
             ) : (
-              <Repeat2 size={16} />
+              <ArrowDownLeft size={16} />
             )}
             {
               {
                 expense: "Despesa",
                 income: "Receita",
-                transfer: "Transferência",
               }[k]
             }
           </button>
@@ -216,51 +342,49 @@ export function TransactionForm({
           />
         </span>
       </label>
-      {kind !== "transfer" && (
-        <div className="field-group">
-          <span className="field-label">Categoria</span>
-          <div
-            className="category-pills"
-            role="group"
-            aria-label="Categorias sugeridas"
-          >
-            {s.categories.slice(0, 6).map((c) => (
-              <button
-                type="button"
-                key={c.id}
-                aria-pressed={category === c.id}
-                className={category === c.id ? "selected" : ""}
-                onClick={() => {
-                  setCategory(c.id);
-                  setManualCategory(true);
-                }}
-              >
-                <CategoryIcon name={c.icon} size={16} />
-                {c.name}
-              </button>
-            ))}
-          </div>
-          <select
-            aria-label="Todas as categorias"
-            value={category}
-            onChange={(e) => {
-              setCategory(e.target.value);
-              setManualCategory(true);
-            }}
-            required
-          >
-            <option value="" disabled>
-              Selecione
-            </option>
-            {s.categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.parent_id ? "↳ " : ""}
-                {c.name}
-              </option>
-            ))}
-          </select>
+      <div className="field-group">
+        <span className="field-label">Categoria</span>
+        <div
+          className="category-pills"
+          role="group"
+          aria-label="Categorias sugeridas"
+        >
+          {s.categories.slice(0, 6).map((c) => (
+            <button
+              type="button"
+              key={c.id}
+              aria-pressed={category === c.id}
+              className={category === c.id ? "selected" : ""}
+              onClick={() => {
+                setCategory(c.id);
+                setManualCategory(true);
+              }}
+            >
+              <CategoryIcon name={c.icon} size={16} />
+              {c.name}
+            </button>
+          ))}
         </div>
-      )}
+        <select
+          aria-label="Todas as categorias"
+          value={category}
+          onChange={(e) => {
+            setCategory(e.target.value);
+            setManualCategory(true);
+          }}
+          required
+        >
+          <option value="" disabled>
+            Selecione
+          </option>
+          {s.categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.parent_id ? "↳ " : ""}
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="form-grid">
         <label>
           Estabelecimento
@@ -305,7 +429,10 @@ export function TransactionForm({
                 key={m}
                 className={method === m ? "selected" : ""}
                 aria-pressed={method === m}
-                onClick={() => setMethod(m)}
+                onClick={() => {
+                  setMethod(m);
+                  if (m !== "credit") setCount(1);
+                }}
               >
                 {m === "credit" && <CreditCard size={16} />}
                 {
@@ -322,31 +449,22 @@ export function TransactionForm({
       </div>
       {method === "credit" ? (
         <div className="form-grid">
-          <label>
-            Cartão
-            <select
-              aria-label="Cartão"
-              value={card}
-              onChange={(e) => setCard(e.target.value)}
-              required
-            >
-              <option value="">Selecione um cartão</option>
-              {s.cards.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            {!s.cards.length && (
-              <small>Cadastre um cartão na aba Cartões.</small>
-            )}
-          </label>
+          <CardPicker
+            cards={s.cards}
+            value={card}
+            onChange={setCard}
+            createCard={createCard}
+          />
           <label>
             Parcelas
             <input
               type="number"
               value={count}
-              onChange={(e) => setCount(Number(e.target.value))}
+              onChange={(e) => {
+                setCount(Number(e.target.value));
+                setMakeRecurring(false);
+                setSelectedRecurrence("");
+              }}
               min={1}
               max={60}
               required
@@ -372,24 +490,11 @@ export function TransactionForm({
         </label>
       )}
       {installmentHint && <p className="hint">{installmentHint}</p>}
-      {kind === "transfer" && (
-        <label>
-          Conta de destino
-          <select
-            name="destination"
-            defaultValue={original?.destination_account_id ?? ""}
-            required
-          >
-            <option value="">Selecione</option>
-            {s.accounts
-              .filter((a) => a.id !== account)
-              .map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-          </select>
-        </label>
+      {method === "credit" && (
+        <p className="hint">
+          O crédito entra no mês da compra. As próximas parcelas entram nos
+          meses seguintes.
+        </p>
       )}
       <label>
         Estado
@@ -418,9 +523,20 @@ export function TransactionForm({
           </label>
           {!selectedRecurrence && (
             <label className="check-label">
-              <input type="checkbox" name="make_recurring" /> Repetir
-              mensalmente
+              <input
+                type="checkbox"
+                name="make_recurring"
+                checked={makeRecurring}
+                onChange={(e) => setMakeRecurring(e.target.checked)}
+              />{" "}
+              Repetir mensalmente
             </label>
+          )}
+          {makeRecurring && !selectedRecurrence && (
+            <RecurrenceTypePicker
+              types={s.recurrence_types}
+              name="recurrence_type_id"
+            />
           )}
         </>
       )}
@@ -439,10 +555,12 @@ export function EntityForm({
   snapshot: s,
   editor,
   save,
+  createCard,
 }: {
   snapshot: Snapshot;
   editor: Exclude<Editor, { type: "transaction" }>;
   save: Save;
+  createCard: CreateCard;
 }) {
   const value: Record<string, unknown> =
     "value" in editor
@@ -451,8 +569,9 @@ export function EntityForm({
   const str = (key: string, fallback = "") => String(value[key] ?? fallback);
   const num = (key: string, fallback: number) => Number(value[key] ?? fallback);
   const [method, setMethod] = useState<Method>(
-    (value.payment_method as Method) ?? "credit",
+    (value.payment_method as Method) ?? "pix",
   );
+  const [card, setCard] = useState(str("card_id", s.cards[0]?.id));
   const submissionId = useRef(String(value.id ?? crypto.randomUUID()));
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -468,12 +587,6 @@ export function EntityForm({
         payload = {
           ...payload,
           name: get("name"),
-          institution: get("institution"),
-          color: get("color"),
-          limit_cents: get("limit") ? parseMoney(get("limit")) : null,
-          last_four: get("last_four"),
-          closing_day: Number(get("closing_day")),
-          due_day: Number(get("due_day")),
         };
       if (editor.type === "category")
         payload = {
@@ -484,7 +597,7 @@ export function EntityForm({
           parent_id: get("parent") || null,
           position: Number(get("position")),
         };
-      if (editor.type === "account")
+      if (editor.type === "account" || editor.type === "recurrence_type")
         payload = { ...payload, name: get("name") };
       if (editor.type === "budget")
         payload = {
@@ -497,10 +610,11 @@ export function EntityForm({
         payload = {
           ...payload,
           name: get("name"),
+          type_id: get("type_id"),
           amount_cents: parseMoney(get("amount")),
           category_id: get("category"),
           payment_method: method,
-          card_id: method === "credit" ? get("card") || null : null,
+          card_id: method === "credit" ? card || null : null,
           account_id: method === "credit" ? null : get("account") || null,
           interval_months: Number(get("interval")),
           next_date: get("next_date"),
@@ -552,15 +666,25 @@ export function EntityForm({
   );
   return (
     <form className="entry-form" onSubmit={submit}>
-      {(["card", "category", "account", "recurrence"] as string[]).includes(
-        editor.type,
-      ) && (
+      {(
+        [
+          "card",
+          "category",
+          "account",
+          "recurrence",
+          "recurrence_type",
+        ] as string[]
+      ).includes(editor.type) && (
         <label>
-          Nome
+          {editor.type === "card"
+            ? "Apelido do cartão"
+            : editor.type === "recurrence_type"
+              ? "Nome do tipo"
+              : "Nome"}
           <input
             name="name"
             defaultValue={str("name")}
-            maxLength={60}
+            maxLength={editor.type === "recurrence" ? 80 : 60}
             placeholder={
               editor.type === "recurrence"
                 ? "Ex.: Spotify"
@@ -572,71 +696,12 @@ export function EntityForm({
         </label>
       )}
       {editor.type === "card" && (
-        <>
-          <label>
-            Instituição
-            <input
-              name="institution"
-              defaultValue={str("institution")}
-              maxLength={60}
-              placeholder="Ex.: Nubank"
-            />
-          </label>
-          <div className="form-grid">
-            <label>
-              Limite <span className="optional">opcional</span>
-              <input
-                name="limit"
-                inputMode="decimal"
-                defaultValue={
-                  value.limit_cents ? moneyInput(Number(value.limit_cents)) : ""
-                }
-                placeholder="5.000,00"
-              />
-            </label>
-            <label>
-              Últimos 4 dígitos <span className="optional">opcional</span>
-              <input
-                name="last_four"
-                inputMode="numeric"
-                defaultValue={str("last_four")}
-                maxLength={4}
-                pattern="[0-9]{4}|"
-                placeholder="0000"
-              />
-            </label>
-          </div>
-          <div className="form-grid">
-            <label>
-              Dia do fechamento
-              <input
-                type="number"
-                name="closing_day"
-                defaultValue={num("closing_day", 25)}
-                min={1}
-                max={31}
-                required
-              />
-            </label>
-            <label>
-              Dia do vencimento
-              <input
-                type="number"
-                name="due_day"
-                defaultValue={num("due_day", 2)}
-                min={1}
-                max={31}
-                required
-              />
-            </label>
-          </div>
-          <p className="hint">
-            Compras no dia do fechamento entram na fatura que está fechando.
-            Dias inexistentes usam o último dia do mês.
-          </p>
-        </>
+        <p className="hint">
+          Só um apelido. As compras são organizadas pelo mês da compra, com
+          parcelas nos meses seguintes.
+        </p>
       )}
-      {(editor.type === "card" || editor.type === "category") && (
+      {editor.type === "category" && (
         <label>
           Cor
           <input
@@ -727,6 +792,10 @@ export function EntityForm({
       )}
       {editor.type === "recurrence" && (
         <>
+          <RecurrenceTypePicker
+            types={s.recurrence_types}
+            defaultValue={str("type_id", s.recurrence_types[0]?.id)}
+          />
           <div className="form-grid">
             <label>
               A cada quantos meses?
@@ -753,6 +822,7 @@ export function EntityForm({
           <label>
             Pagamento
             <select
+              aria-label="Pagamento"
               value={method}
               onChange={(e) => setMethod(e.target.value as Method)}
             >
@@ -769,21 +839,12 @@ export function EntityForm({
             </select>
           </label>
           {method === "credit" ? (
-            <label>
-              Cartão
-              <select
-                name="card"
-                defaultValue={str("card_id", s.cards[0]?.id)}
-                required
-              >
-                <option value="">Selecione</option>
-                {s.cards.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <CardPicker
+              cards={s.cards}
+              value={card}
+              onChange={setCard}
+              createCard={createCard}
+            />
           ) : (
             <label>
               Conta
@@ -818,9 +879,9 @@ export function EntityForm({
       {editor.type === "payment" && (
         <>
           <p className="hint">
-            Saldo da fatura: {money(editor.invoice.remaining)}. Este pagamento
-            reduz a obrigação e entra no fluxo de caixa; a compra não será
-            contada de novo.
+            Saldo do crédito do mês: {money(editor.invoice.remaining)}. Este
+            pagamento reduz a obrigação e entra no fluxo de caixa; a compra não
+            será contada de novo.
           </p>
           <label>
             Data do pagamento

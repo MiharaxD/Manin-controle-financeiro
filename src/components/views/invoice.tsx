@@ -53,7 +53,7 @@ export function InvoiceDetail({
   return (
     <div className="invoice-detail">
       <label>
-        Competência da fatura
+        Mês do crédito
         <select
           value={month}
           onChange={(e) => {
@@ -75,7 +75,7 @@ export function InvoiceDetail({
         <strong>{money(invoice?.remaining ?? 0)}</strong>
         <small>
           {invoice
-            ? `Vencimento: ${formatDate(invoice.due_date)}`
+            ? `Compras e parcelas de ${monthLabel(month)}`
             : "Nenhuma compra nesta competência"}
         </small>
       </div>
@@ -91,7 +91,7 @@ export function InvoiceDetail({
           Registrar pagamento
         </button>
       )}
-      <h3>Compras desta fatura</h3>
+      <h3>Compras e parcelas do mês</h3>
       {error ? (
         <p className="form-error" role="alert">
           {error}
@@ -145,7 +145,7 @@ export function InvoiceDetail({
       )}
       {detail && detail.category_totals.length > 0 && (
         <>
-          <h3>Categorias desta fatura · valor das parcelas</h3>
+          <h3>Categorias do mês · valor das parcelas</h3>
           <div className="invoice-category-list">
             {s.categories
               .map((c) => ({

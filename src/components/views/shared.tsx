@@ -140,12 +140,16 @@ export function TransactionRows({
                 <CategoryIcon name={c?.icon ?? "circle"} size={20} />
               )}
             </span>
-            <button className="transaction-text" onClick={() => edit(t)}>
+            <button
+              className="transaction-text"
+              onClick={() => edit(t)}
+              disabled={t.kind === "transfer"}
+            >
               <strong>
                 {t.merchant || t.description || c?.name || "Transferência"}
               </strong>
               <span>
-                {c?.name ?? "Entre suas contas"}
+                {c?.name ?? "Transferência antiga · entre suas contas"}
                 <span className="separator">·</span>
                 {formatDate(t.purchase_date)}
                 {t.payment_method === "credit" && (
@@ -170,8 +174,12 @@ export function TransactionRows({
                 <Ellipsis size={19} />
               </summary>
               <div>
-                <button onClick={() => edit(t)}>Editar</button>
-                <button onClick={() => reuse(t)}>Reutilizar</button>
+                {t.kind !== "transfer" && (
+                  <button onClick={() => edit(t)}>Editar</button>
+                )}
+                {t.kind !== "transfer" && (
+                  <button onClick={() => reuse(t)}>Reutilizar</button>
+                )}
                 <button className="danger-text" onClick={() => remove(t)}>
                   Excluir
                 </button>

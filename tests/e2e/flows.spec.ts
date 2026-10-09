@@ -66,14 +66,13 @@ test("lançamento rápido, edição, busca, exclusão com desfazer e persistênc
 });
 test("cartão, compra parcelada, fatura e pagamento", async ({ page }) => {
   await page.goto("/demo");
-  await nav(page, "Cartões");
-  await page.getByRole("button", { name: "Novo cartão" }).click();
+  await nav(page, "Recorrentes");
+  await page.getByRole("button", { name: "Novo apelido" }).click();
   let dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Nome", { exact: true }).fill("Cartão teste");
-  await dialog.getByLabel("Instituição").fill("Banco teste");
-  await dialog.getByLabel(/^Limite/).fill("5.000,00");
-  await dialog.getByLabel("Dia do fechamento").fill("31");
-  await dialog.getByLabel("Dia do vencimento").fill("1");
+  await dialog
+    .getByLabel("Apelido do cartão", { exact: true })
+    .fill("Cartão teste");
+
   await dialog.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(dialog).toBeHidden();
   await page
@@ -84,7 +83,7 @@ test("cartão, compra parcelada, fatura e pagamento", async ({ page }) => {
   await dialog.getByLabel("Estabelecimento").fill("Compra em três vezes");
   await dialog.getByRole("button", { name: "Crédito", exact: true }).click();
   await dialog
-    .getByLabel("Cartão", { exact: true })
+    .getByLabel("Apelido do cartão", { exact: true })
     .selectOption({ label: "Cartão teste" });
   await dialog.getByLabel("Parcelas", { exact: true }).fill("3");
   await expect(dialog).toContainText("primeira de R$ 33,34");
@@ -93,14 +92,14 @@ test("cartão, compra parcelada, fatura e pagamento", async ({ page }) => {
     .click();
   await expect(dialog).toBeHidden();
   const card = page.locator(".card-panel").filter({ hasText: "Cartão teste" });
-  await card.getByRole("button", { name: /Ver fatura/ }).click();
+  await card.getByRole("button", { name: /Ver compras do mês/ }).click();
   dialog = page.getByRole("dialog");
   const options = await dialog
-    .getByLabel("Competência da fatura")
+    .getByLabel("Mês do crédito")
     .locator("option")
     .allTextContents();
   expect(options.length).toBeGreaterThanOrEqual(3);
-  await dialog.getByLabel("Competência da fatura").selectOption({ index: 1 });
+  await dialog.getByLabel("Mês do crédito").selectOption({ index: 1 });
   await expect(dialog).toContainText("Compra em três vezes");
   await dialog
     .getByRole("button", { name: "Registrar pagamento", exact: true })
@@ -117,8 +116,8 @@ test("recorrência, orçamento, exportação, tema e relatórios", async ({
   page,
 }, info) => {
   await page.goto("/demo");
-  await nav(page, "Recorrências");
-  await page.getByRole("button", { name: "Nova recorrência" }).click();
+  await nav(page, "Recorrentes");
+  await page.getByRole("button", { name: "Nova recorrente" }).click();
   let dialog = page.getByRole("dialog");
   await dialog.getByLabel("Nome", { exact: true }).fill("Serviço teste");
   await dialog.getByLabel("Valor da cobrança").fill("19,90");

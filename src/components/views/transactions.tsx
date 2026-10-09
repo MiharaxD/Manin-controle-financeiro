@@ -85,7 +85,6 @@ export function Transactions({
               <option value="">Todos</option>
               <option value="expense">Despesas</option>
               <option value="income">Receitas</option>
-              <option value="transfer">Transferências</option>
             </select>
           </label>
           <label>
@@ -103,7 +102,7 @@ export function Transactions({
             </select>
           </label>
           <label>
-            Cartão
+            Apelido do cartão
             <select
               value={filters.card}
               onChange={(e) => change("card", e.target.value)}

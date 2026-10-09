@@ -24,6 +24,7 @@ export const transactionSchema = z
     recurrence_id: nullableId.optional(),
     occurrence_date: date.nullable().optional(),
     make_recurring: z.boolean().optional(),
+    recurrence_type_id: nullableId.optional(),
   })
   .superRefine((v, ctx) => {
     const error = (message: string) =>
@@ -50,21 +51,25 @@ export const transactionSchema = z
       (v.kind !== "expense" || v.installments_count !== 1)
     )
       error("Recorrência exige despesa sem parcelamento.");
+    if (v.make_recurring && !v.recurrence_type_id)
+      error("Selecione o tipo da recorrente.");
     if (v.recurrence_id && !v.occurrence_date)
       error("Informe a data da ocorrência.");
     if (v.recurrence_id && (v.kind !== "expense" || v.installments_count !== 1))
       error("Uma ocorrência deve ser despesa sem parcelamento.");
   });
-export const cardSchema = z.object({
-  id: id.optional(),
-  name: z.string().trim().min(1).max(60),
-  institution: z.string().trim().max(60),
-  color,
-  limit_cents: cents.nullable(),
-  last_four: z.string().regex(/^\d{4}$|^$/),
-  closing_day: z.number().int().min(1).max(31),
-  due_day: z.number().int().min(1).max(31),
-});
+export const cardSchema = z
+  .object({
+    id: id.optional(),
+    name: z.string().trim().min(1).max(60),
+  })
+  .strict();
+export const recurrenceTypeSchema = z
+  .object({
+    id: id.optional(),
+    name: z.string().trim().min(1).max(60),
+  })
+  .strict();
 export const categorySchema = z.object({
   id: id.optional(),
   name: z.string().trim().min(1).max(60),
@@ -96,7 +101,7 @@ export const budgetSchema = z.object({
   category_id: nullableId,
   amount_cents: cents,
 });
-export const recurrenceSchema = z
+export const legacyRecurrenceSchema = z
   .object({
     id: id.optional(),
     name: z.string().trim().min(1).max(80),
@@ -114,6 +119,9 @@ export const recurrenceSchema = z
     (v) => (v.payment_method === "credit" ? !!v.card_id : !!v.account_id),
     "Selecione a conta ou cartão.",
   );
+export const recurrenceSchema = legacyRecurrenceSchema.safeExtend({
+  type_id: id,
+});
 export const paymentSchema = z.object({
   id: id.optional(),
   card_id: id,
@@ -123,18 +131,35 @@ export const paymentSchema = z.object({
   account_id: id,
 });
 export const mutationSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("transaction"), payload: transactionSchema }),
+  z.object({
+    action: z.literal("transaction"),
+    payload: transactionSchema.refine(
+      (v) => v.kind !== "transfer",
+      "Novos lançamentos devem ser despesa ou receita.",
+    ),
+  }),
   z.object({ action: z.literal("card"), payload: cardSchema }),
   z.object({ action: z.literal("category"), payload: categorySchema }),
   z.object({ action: z.literal("account"), payload: accountSchema }),
   z.object({ action: z.literal("budget"), payload: budgetSchema }),
   z.object({ action: z.literal("recurrence"), payload: recurrenceSchema }),
+  z.object({
+    action: z.literal("recurrence_type"),
+    payload: recurrenceTypeSchema,
+  }),
   z.object({ action: z.literal("payment"), payload: paymentSchema }),
   z.object({
     action: z.literal("delete"),
     payload: z.object({
       id,
-      entity: z.enum(["transaction", "card", "category", "budget", "account"]),
+      entity: z.enum([
+        "transaction",
+        "card",
+        "category",
+        "budget",
+        "account",
+        "recurrence_type",
+      ]),
     }),
   }),
   z.object({ action: z.literal("restore"), payload: z.object({ id }) }),

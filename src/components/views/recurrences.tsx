@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { Plus, Ellipsis } from "lucide-react";
 import {
   annualEquivalent,
@@ -20,6 +21,19 @@ export function Recurrences({
   mutate: (value: Mutation) => Promise<void>;
   history: (id: string) => void;
 }) {
+  const [type, setType] = useState(""),
+    [payment, setPayment] = useState("");
+  const visible = s.recurrences.filter(
+    (r) =>
+      (!type || r.type_id === type) &&
+      (!payment || r.payment_method === payment),
+  );
+  const methods = {
+    credit: "Crédito",
+    pix: "Pix",
+    debit: "Débito",
+    cash: "Dinheiro",
+  };
   const active = s.recurrences.filter((r) => r.status === "active"),
     monthly = active.reduce(
       (n, r) => n + monthlyEquivalent(r.amount_cents, r.interval_months),
@@ -40,7 +54,7 @@ export function Recurrences({
           onClick={() => open({ type: "recurrence" })}
         >
           <Plus size={18} />
-          Nova recorrência
+          Nova recorrente
         </button>
       </div>
       <div className="metric-grid">
@@ -62,10 +76,37 @@ export function Recurrences({
           </small>
         </div>
       </div>
-      <Panel title="Suas recorrências">
-        {s.recurrences.length ? (
+      <Panel title="Suas recorrentes">
+        <div className="recurrence-filters">
+          <label>
+            Filtrar por tipo
+            <select value={type} onChange={(e) => setType(e.target.value)}>
+              <option value="">Todos os tipos</option>
+              {s.recurrence_types.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Filtrar por pagamento
+            <select
+              value={payment}
+              onChange={(e) => setPayment(e.target.value)}
+            >
+              <option value="">Todos os pagamentos</option>
+              {Object.entries(methods).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {visible.length ? (
           <div className="recurrence-list">
-            {s.recurrences.map((r) => (
+            {visible.map((r) => (
               <div className="recurrence-row" key={r.id}>
                 <span className="service-mark">{r.name.slice(0, 1)}</span>
                 <button
@@ -74,6 +115,9 @@ export function Recurrences({
                 >
                   <strong>
                     {r.name}{" "}
+                    <span className="badge">
+                      {s.recurrence_types.find((t) => t.id === r.type_id)?.name}
+                    </span>{" "}
                     {r.status !== "active" && (
                       <span className="badge">
                         {r.status === "paused" ? "Pausada" : "Cancelada"}
@@ -81,6 +125,12 @@ export function Recurrences({
                     )}
                   </strong>
                   <span>
+                    {methods[r.payment_method]} ·{" "}
+                    {r.card_id
+                      ? s.cards.find((c) => c.id === r.card_id)?.name
+                      : s.accounts.find((a) => a.id === r.account_id)
+                          ?.name}{" "}
+                    ·{" "}
                     {r.interval_months === 1
                       ? "Mensal"
                       : r.interval_months === 12
@@ -148,8 +198,16 @@ export function Recurrences({
           </div>
         ) : (
           <Empty
-            title="Sem surpresas nas renovações"
-            text="Cadastre uma assinatura ou qualquer despesa que se repete."
+            title={
+              s.recurrences.length
+                ? "Nenhuma recorrente neste filtro"
+                : "Sem surpresas nas renovações"
+            }
+            text={
+              s.recurrences.length
+                ? "Escolha outro tipo ou pagamento para ver suas recorrentes."
+                : "Cadastre uma assinatura, seguro, plano ou outra despesa que se repete."
+            }
           />
         )}
       </Panel>
