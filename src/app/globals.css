@@ -61,6 +61,7 @@
   --content-pad: 112px;
   --ease-snap: cubic-bezier(0.2, 1.35, 0.4, 1);
   --ease-sweep: cubic-bezier(0.7, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.45, 0, 0.7, 0.6);
   --motion: 160ms;
   color-scheme: light;
 }
@@ -2227,6 +2228,16 @@ td:first-child {
   border-color: #fff;
   box-shadow: 14px 14px 0 var(--red);
 }
+/* Closing: the plate is flung off to the right, the field drains after it. */
+.dialog-overlay[data-state="closed"] {
+  animation: flood-out 0.26s 0.04s var(--ease-exit) forwards;
+}
+.dialog-overlay[data-state="closed"]::before {
+  animation: wedge-out 0.22s var(--ease-exit) forwards;
+}
+.dialog-content[data-state="closed"] {
+  animation: dialog-out 0.22s var(--ease-exit) forwards;
+}
 .dialog-content.wide {
   width: min(780px, calc(100vw - 40px));
 }
@@ -2983,9 +2994,34 @@ main > .form-error {
       scale(0.86);
   }
 }
+@keyframes dialog-out {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateX(110px) rotate(5deg)
+      scale(0.9);
+  }
+}
+@keyframes flood-out {
+  from {
+    clip-path: polygon(0 0, 130% 0, 100% 100%, 0 100%);
+  }
+  to {
+    clip-path: polygon(130% 0, 130% 0, 100% 100%, 100% 100%);
+  }
+}
+@keyframes wedge-out {
+  to {
+    transform: translateX(-100%);
+  }
+}
 @keyframes sheet-in {
   from {
     transform: translateY(100%) rotate(-3deg);
+  }
+}
+@keyframes sheet-out {
+  to {
+    transform: translateY(105%) rotate(3deg);
   }
 }
 @keyframes toast-in {
@@ -3429,6 +3465,9 @@ main > .form-error {
     border-width: 3px 0 0;
     box-shadow: 0 -8px 0 var(--ink);
     animation: sheet-in 0.34s var(--ease-snap);
+  }
+  :is(.dialog-content, .dialog-content.wide)[data-state="closed"] {
+    animation: sheet-out 0.24s var(--ease-exit) forwards;
   }
   :root[data-theme="dark"] :is(.dialog-content, .dialog-content.wide) {
     box-shadow: 0 -8px 0 var(--red);

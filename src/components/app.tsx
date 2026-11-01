@@ -41,7 +41,7 @@ import type {
   Snapshot,
   Transaction,
 } from "@/lib/types";
-import { Dialog } from "./ui/dialog";
+import { Dialog, DialogExit } from "./ui/dialog";
 import { Burst, CategoryIcon, Logo, Ransom } from "./icons";
 import { EntityForm, TransactionForm, type Editor } from "./forms";
 import { Dashboard } from "./views/dashboard";
@@ -747,64 +747,44 @@ export function FinanceApp({
           <span>Mais</span>
         </button>
       </nav>
-      {moreOpen && (
-        <Dialog open onClose={() => setMoreOpen(false)} title="Mais">
-          <div className="more-menu">
-            {navigation
-              .filter((n) => !mobilePrimary.includes(n.id))
-              .map((n) => (
-                <button
-                  key={n.id}
-                  className={page === n.id ? "active" : ""}
-                  aria-current={page === n.id ? "page" : undefined}
-                  onClick={() => {
-                    setMoreOpen(false);
-                    onPage(n.id);
-                  }}
-                >
-                  <n.icon size={20} strokeWidth={1.7} />
-                  {n.title}
-                </button>
-              ))}
-            <button
-              onClick={() => {
-                setMoreOpen(false);
-                setSettings(true);
-              }}
-            >
-              <Settings2 size={20} strokeWidth={1.7} />
-              Preferências e backups
-            </button>
-          </div>
-        </Dialog>
-      )}
-      {notice && (
-        <Dialog
-          open
-          onClose={() => {
-            void repository
-              .acknowledge()
-              .then(() => setNotice(false))
-              .catch((error) =>
-                setToast({ text: (error as Error).message, error: true }),
-              );
-          }}
-          title="Seus dados ficam neste dispositivo"
-        >
-          <p className="dialog-copy">
-            O Manin funciona sem conta e guarda suas finanças somente neste
-            dispositivo e navegador. Não enviamos os registros a um servidor do
-            Manin.
-          </p>
-          <p className="dialog-copy">
-            Limpar os dados do navegador, usar outro navegador ou trocar de
-            dispositivo pode remover seus dados ou impedir o acesso a eles.
-            Exporte backups JSON regularmente. O Google Drive é opcional e
-            recebe uma cópia apenas quando você solicitar.
-          </p>
-          <button
-            className="button primary"
-            onClick={() => {
+      <DialogExit>
+        {moreOpen && (
+          <Dialog open onClose={() => setMoreOpen(false)} title="Mais">
+            <div className="more-menu">
+              {navigation
+                .filter((n) => !mobilePrimary.includes(n.id))
+                .map((n) => (
+                  <button
+                    key={n.id}
+                    className={page === n.id ? "active" : ""}
+                    aria-current={page === n.id ? "page" : undefined}
+                    onClick={() => {
+                      setMoreOpen(false);
+                      onPage(n.id);
+                    }}
+                  >
+                    <n.icon size={20} strokeWidth={1.7} />
+                    {n.title}
+                  </button>
+                ))}
+              <button
+                onClick={() => {
+                  setMoreOpen(false);
+                  setSettings(true);
+                }}
+              >
+                <Settings2 size={20} strokeWidth={1.7} />
+                Preferências e backups
+              </button>
+            </div>
+          </Dialog>
+        )}
+      </DialogExit>
+      <DialogExit>
+        {notice && (
+          <Dialog
+            open
+            onClose={() => {
               void repository
                 .acknowledge()
                 .then(() => setNotice(false))
@@ -812,396 +792,430 @@ export function FinanceApp({
                   setToast({ text: (error as Error).message, error: true }),
                 );
             }}
+            title="Seus dados ficam neste dispositivo"
           >
-            Entendi, abrir Manin
-          </button>
-        </Dialog>
-      )}
-      {editor && (
-        <Dialog open onClose={() => setEditor(null)} title={editorTitle}>
-          {editor.type === "transaction" ? (
-            <TransactionForm
-              snapshot={s}
-              editor={editor}
-              save={save}
-              suggest={suggest}
-              createCard={createCard}
-            />
-          ) : (
-            <>
-              <EntityForm
+            <p className="dialog-copy">
+              O Manin funciona sem conta e guarda suas finanças somente neste
+              dispositivo e navegador. Não enviamos os registros a um servidor do
+              Manin.
+            </p>
+            <p className="dialog-copy">
+              Limpar os dados do navegador, usar outro navegador ou trocar de
+              dispositivo pode remover seus dados ou impedir o acesso a eles.
+              Exporte backups JSON regularmente. O Google Drive é opcional e
+              recebe uma cópia apenas quando você solicitar.
+            </p>
+            <button
+              className="button primary"
+              onClick={() => {
+                void repository
+                  .acknowledge()
+                  .then(() => setNotice(false))
+                  .catch((error) =>
+                    setToast({ text: (error as Error).message, error: true }),
+                  );
+              }}
+            >
+              Entendi, abrir Manin
+            </button>
+          </Dialog>
+        )}
+      </DialogExit>
+      <DialogExit>
+        {editor && (
+          <Dialog open onClose={() => setEditor(null)} title={editorTitle}>
+            {editor.type === "transaction" ? (
+              <TransactionForm
                 snapshot={s}
                 editor={editor}
                 save={save}
+                suggest={suggest}
                 createCard={createCard}
               />
-              {editor.type === "card" && editor.value && (
-                <button
-                  className="text-button danger-text"
-                  style={{ marginTop: 20 }}
-                  onClick={async () => {
-                    try {
-                      await mutate({
-                        action: "delete",
-                        payload: { entity: "card", id: editor.value!.id },
-                      });
-                      setEditor(null);
-                      setToast({ text: "Apelido excluído." });
-                    } catch (e) {
-                      setToast({ text: (e as Error).message, error: true });
-                    }
-                  }}
-                >
-                  Excluir apelido
-                </button>
-              )}
-            </>
-          )}
-        </Dialog>
-      )}
-      {invoice && !editor && (
-        <Dialog
-          open
-          onClose={() => setInvoice(null)}
-          title={invoice.card.name}
-          wide
-        >
-          <InvoiceDetail
-            s={s}
-            card={invoice.card}
-            initialMonth={invoice.month}
-            load={loadInvoice}
-            open={(e) => {
-              if (e.type === "payment")
-                setInvoice({
-                  card: invoice.card,
-                  month: e.invoice.billing_month,
-                });
-              setEditor(e);
-            }}
-            edit={edit}
-          />
-        </Dialog>
-      )}
-      {history && !editor && (
-        <Dialog
-          open
-          onClose={() => setHistory(null)}
-          title={`Histórico · ${s.recurrences.find((r) => r.id === history)?.name ?? "Recorrência"}`}
-          wide
-        >
-          <Transactions
-            s={s}
-            load={(filters, page, signal) =>
-              loadTransactions(
-                { ...filters, recurrence: history },
-                page,
-                signal,
-              )
-            }
-            initialFilters={{ from: "", to: "" }}
-            edit={edit}
-            reuse={reuse}
-            remove={setDeleteTarget}
-          />
-        </Dialog>
-      )}
-      {deleteTarget && (
-        <Dialog
-          open
-          onClose={() => setDeleteTarget(null)}
-          title="Excluir lançamento?"
-        >
-          <p className="dialog-copy">
-            A compra e suas parcelas serão removidas dos totais. Você pode
-            desfazer por alguns instantes.
-          </p>
-          <div className="dialog-actions">
-            <button
-              className="button secondary"
-              onClick={() => setDeleteTarget(null)}
-            >
-              Voltar
-            </button>
-            <button
-              className="button danger"
-              disabled={deleteBusy}
-              onClick={async () => {
-                setDeleteBusy(true);
-                try {
-                  await mutate({
-                    action: "delete",
-                    payload: { entity: "transaction", id: deleteTarget.id },
-                  });
-                  setToast({
-                    text: "Lançamento excluído.",
-                    undo: deleteTarget.id,
-                  });
-                  setDeleteTarget(null);
-                } catch (e) {
-                  setToast({ text: (e as Error).message, error: true });
-                } finally {
-                  setDeleteBusy(false);
-                }
-              }}
-            >
-              {deleteBusy ? "Excluindo…" : "Excluir"}
-            </button>
-          </div>
-        </Dialog>
-      )}
-      {settings && !editor && (
-        <Dialog
-          open
-          onClose={() => {
-            setSettings(false);
-            // A Drive upload inside the dialog records its receipt directly.
-            void repository
-              .read()
-              .then((record) =>
-                setDriveBackups(record.driveReceipts.map((r) => r.confirmed_at)),
-              )
-              .catch(() => {});
-          }}
-          title="Seu espaço, do seu jeito"
-        >
-          <div className="settings-content">
-            <section>
-              <h3>
-                <Smartphone size={19} />
-                No seu iPhone
-              </h3>
-              <p>
-                No Safari, toque em Compartilhar e depois em{" "}
-                <strong>Adicionar à Tela de Início</strong>. Abra pelo ícone
-                para usar como aplicativo.
-              </p>
-              <p className="hint">
-                Após a primeira abertura da versão publicada, seus dados e o app
-                ficam disponíveis offline. A instalação exige HTTPS. Não há
-                sincronização entre dispositivos.
-              </p>
-            </section>
-            <section>
-              <div className="between">
-                <h3>Orçamentos</h3>
-                <button
-                  className="text-button"
-                  onClick={() => {
-                    setSettings(false);
-                    onPage("budgets");
-                  }}
-                >
-                  Abrir <ArrowRight size={15} />
-                </button>
-              </div>
-            </section>
-            <section>
-              <div className="between">
-                <h3>Categorias</h3>
-                <button
-                  className="text-button"
-                  onClick={() => setEditor({ type: "category" })}
-                >
-                  <Plus size={15} />
-                  Nova
-                </button>
-              </div>
-              <div className="settings-list">
-                {s.categories.map((c) => (
-                  <div key={c.id}>
-                    <button
-                      onClick={() => setEditor({ type: "category", value: c })}
-                    >
-                      <CategoryIcon name={c.icon} />
-                      <span>
-                        {c.parent_id ? "↳ " : ""}
-                        {c.name}
-                      </span>
-                    </button>
-                    <button
-                      className="icon-button"
-                      aria-label={`Excluir categoria ${c.name}`}
-                      onClick={() => {
-                        void safeMutate({
-                          action: "delete",
-                          payload: { entity: "category", id: c.id },
-                        });
-                      }}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </section>
-            <section>
-              <div className="between">
-                <h3>Tipos de recorrentes</h3>
-                <button
-                  className="text-button"
-                  onClick={() => setEditor({ type: "recurrence_type" })}
-                >
-                  <Plus size={15} />
-                  Novo tipo
-                </button>
-              </div>
-              <p>
-                Assinatura, seguro, plano ou o que fizer sentido para você.
-                Tipos em uso precisam ser trocados nas recorrentes antes de
-                excluir.
-              </p>
-              <div className="settings-list">
-                {s.recurrence_types.map((t) => (
-                  <div key={t.id}>
-                    <button
-                      aria-label={`Editar tipo ${t.name}`}
-                      onClick={() =>
-                        setEditor({ type: "recurrence_type", value: { ...t } })
-                      }
-                    >
-                      <Repeat2 size={18} />
-                      {t.name}
-                    </button>
-                    <button
-                      className="icon-button"
-                      aria-label={`Excluir tipo ${t.name}`}
-                      onClick={() => {
-                        void safeMutate({
-                          action: "delete",
-                          payload: { entity: "recurrence_type", id: t.id },
-                        });
-                      }}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </section>
-            <section>
-              <div className="between">
-                <h3>Contas</h3>
-                <button
-                  className="text-button"
-                  onClick={() => setEditor({ type: "account" })}
-                >
-                  <Plus size={15} />
-                  Nova
-                </button>
-              </div>
-              <div className="settings-list">
-                {s.accounts.map((a) => (
-                  <div key={a.id}>
-                    <button
-                      onClick={() =>
-                        setEditor({ type: "account", value: { ...a } })
-                      }
-                    >
-                      <Wallet size={18} />
-                      {a.name}
-                    </button>
-                    <button
-                      className="icon-button"
-                      aria-label={`Excluir conta ${a.name}`}
-                      onClick={() => {
-                        void safeMutate({
-                          action: "delete",
-                          payload: { entity: "account", id: a.id },
-                        });
-                      }}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </section>
-            <section>
-              <h3>
-                <Download size={18} />
-                Seus dados com você
-              </h3>
-              <p>
-                CSV exporta os lançamentos. JSON inclui cartões, parcelas,
-                pagamentos, recorrentes, seus tipos, categorias e orçamentos. O
-                arquivo contém informações financeiras sensíveis; guarde-o em um
-                lugar seguro.
-              </p>
-              <div className="dialog-actions">
-                <button
-                  className="button secondary"
-                  disabled={settingsBusy}
-                  onClick={() => {
-                    void exportData("csv");
-                  }}
-                >
-                  Exportar CSV
-                </button>
-                <button
-                  className="button secondary"
-                  disabled={settingsBusy}
-                  onClick={() => {
-                    void exportData("json");
-                  }}
-                >
-                  Exportar JSON
-                </button>
-              </div>
-            </section>
-            <Backups
-              repository={repository}
-              onRestored={(record) => {
-                commit(record);
-                setInvoice(null);
-                setHistory(null);
-                setDeleteTarget(null);
-                setPageFilters({});
-                setPage("home");
-                setToast(null);
-              }}
-            />
-            <section>
-              <h3 className="danger-text">Excluir meus dados</h3>
-              <p>
-                Remove todos os registros financeiros desta conta. Exporte antes
-                se quiser guardar uma cópia. Contas e categorias personalizadas
-                também serão removidas; o app volta às opções iniciais vazias.
-                Backups no Drive não são apagados.
-              </p>
-              <label>
-                Digite EXCLUIR para confirmar
-                <input
-                  value={clearConfirm}
-                  onChange={(e) => setClearConfirm(e.target.value)}
-                  autoComplete="off"
+            ) : (
+              <>
+                <EntityForm
+                  snapshot={s}
+                  editor={editor}
+                  save={save}
+                  createCard={createCard}
                 />
-              </label>
+                {editor.type === "card" && editor.value && (
+                  <button
+                    className="text-button danger-text"
+                    style={{ marginTop: 20 }}
+                    onClick={async () => {
+                      try {
+                        await mutate({
+                          action: "delete",
+                          payload: { entity: "card", id: editor.value!.id },
+                        });
+                        setEditor(null);
+                        setToast({ text: "Apelido excluído." });
+                      } catch (e) {
+                        setToast({ text: (e as Error).message, error: true });
+                      }
+                    }}
+                  >
+                    Excluir apelido
+                  </button>
+                )}
+              </>
+            )}
+          </Dialog>
+        )}
+      </DialogExit>
+      <DialogExit>
+        {invoice && !editor && (
+          <Dialog
+            open
+            onClose={() => setInvoice(null)}
+            title={invoice.card.name}
+            wide
+          >
+            <InvoiceDetail
+              s={s}
+              card={invoice.card}
+              initialMonth={invoice.month}
+              load={loadInvoice}
+              open={(e) => {
+                if (e.type === "payment")
+                  setInvoice({
+                    card: invoice.card,
+                    month: e.invoice.billing_month,
+                  });
+                setEditor(e);
+              }}
+              edit={edit}
+            />
+          </Dialog>
+        )}
+      </DialogExit>
+      <DialogExit>
+        {!!history && !editor && (
+          <Dialog
+            open
+            onClose={() => setHistory(null)}
+            title={`Histórico · ${s.recurrences.find((r) => r.id === history)?.name ?? "Recorrência"}`}
+            wide
+          >
+            <Transactions
+              s={s}
+              load={(filters, page, signal) =>
+                loadTransactions(
+                  { ...filters, recurrence: history },
+                  page,
+                  signal,
+                )
+              }
+              initialFilters={{ from: "", to: "" }}
+              edit={edit}
+              reuse={reuse}
+              remove={setDeleteTarget}
+            />
+          </Dialog>
+        )}
+      </DialogExit>
+      <DialogExit>
+        {deleteTarget && (
+          <Dialog
+            open
+            onClose={() => setDeleteTarget(null)}
+            title="Excluir lançamento?"
+          >
+            <p className="dialog-copy">
+              A compra e suas parcelas serão removidas dos totais. Você pode
+              desfazer por alguns instantes.
+            </p>
+            <div className="dialog-actions">
+              <button
+                className="button secondary"
+                onClick={() => setDeleteTarget(null)}
+              >
+                Voltar
+              </button>
               <button
                 className="button danger"
-                disabled={clearConfirm !== "EXCLUIR" || settingsBusy}
+                disabled={deleteBusy}
                 onClick={async () => {
-                  setSettingsBusy(true);
+                  setDeleteBusy(true);
                   try {
                     await mutate({
-                      action: "clear",
-                      payload: { confirmation: "EXCLUIR" },
+                      action: "delete",
+                      payload: { entity: "transaction", id: deleteTarget.id },
                     });
-                    setClearConfirm("");
-                    setToast({ text: "Dados financeiros excluídos." });
+                    setToast({
+                      text: "Lançamento excluído.",
+                      undo: deleteTarget.id,
+                    });
+                    setDeleteTarget(null);
                   } catch (e) {
                     setToast({ text: (e as Error).message, error: true });
                   } finally {
-                    setSettingsBusy(false);
+                    setDeleteBusy(false);
                   }
                 }}
               >
-                Excluir todos os dados
+                {deleteBusy ? "Excluindo…" : "Excluir"}
               </button>
-            </section>
-          </div>
-        </Dialog>
-      )}
+            </div>
+          </Dialog>
+        )}
+      </DialogExit>
+      <DialogExit>
+        {settings && !editor && (
+          <Dialog
+            open
+            onClose={() => {
+              setSettings(false);
+              // A Drive upload inside the dialog records its receipt directly.
+              void repository
+                .read()
+                .then((record) =>
+                  setDriveBackups(record.driveReceipts.map((r) => r.confirmed_at)),
+                )
+                .catch(() => {});
+            }}
+            title="Seu espaço, do seu jeito"
+          >
+            <div className="settings-content">
+              <section>
+                <h3>
+                  <Smartphone size={19} />
+                  No seu iPhone
+                </h3>
+                <p>
+                  No Safari, toque em Compartilhar e depois em{" "}
+                  <strong>Adicionar à Tela de Início</strong>. Abra pelo ícone
+                  para usar como aplicativo.
+                </p>
+                <p className="hint">
+                  Após a primeira abertura da versão publicada, seus dados e o app
+                  ficam disponíveis offline. A instalação exige HTTPS. Não há
+                  sincronização entre dispositivos.
+                </p>
+              </section>
+              <section>
+                <div className="between">
+                  <h3>Orçamentos</h3>
+                  <button
+                    className="text-button"
+                    onClick={() => {
+                      setSettings(false);
+                      onPage("budgets");
+                    }}
+                  >
+                    Abrir <ArrowRight size={15} />
+                  </button>
+                </div>
+              </section>
+              <section>
+                <div className="between">
+                  <h3>Categorias</h3>
+                  <button
+                    className="text-button"
+                    onClick={() => setEditor({ type: "category" })}
+                  >
+                    <Plus size={15} />
+                    Nova
+                  </button>
+                </div>
+                <div className="settings-list">
+                  {s.categories.map((c) => (
+                    <div key={c.id}>
+                      <button
+                        onClick={() => setEditor({ type: "category", value: c })}
+                      >
+                        <CategoryIcon name={c.icon} />
+                        <span>
+                          {c.parent_id ? "↳ " : ""}
+                          {c.name}
+                        </span>
+                      </button>
+                      <button
+                        className="icon-button"
+                        aria-label={`Excluir categoria ${c.name}`}
+                        onClick={() => {
+                          void safeMutate({
+                            action: "delete",
+                            payload: { entity: "category", id: c.id },
+                          });
+                        }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <section>
+                <div className="between">
+                  <h3>Tipos de recorrentes</h3>
+                  <button
+                    className="text-button"
+                    onClick={() => setEditor({ type: "recurrence_type" })}
+                  >
+                    <Plus size={15} />
+                    Novo tipo
+                  </button>
+                </div>
+                <p>
+                  Assinatura, seguro, plano ou o que fizer sentido para você.
+                  Tipos em uso precisam ser trocados nas recorrentes antes de
+                  excluir.
+                </p>
+                <div className="settings-list">
+                  {s.recurrence_types.map((t) => (
+                    <div key={t.id}>
+                      <button
+                        aria-label={`Editar tipo ${t.name}`}
+                        onClick={() =>
+                          setEditor({ type: "recurrence_type", value: { ...t } })
+                        }
+                      >
+                        <Repeat2 size={18} />
+                        {t.name}
+                      </button>
+                      <button
+                        className="icon-button"
+                        aria-label={`Excluir tipo ${t.name}`}
+                        onClick={() => {
+                          void safeMutate({
+                            action: "delete",
+                            payload: { entity: "recurrence_type", id: t.id },
+                          });
+                        }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <section>
+                <div className="between">
+                  <h3>Contas</h3>
+                  <button
+                    className="text-button"
+                    onClick={() => setEditor({ type: "account" })}
+                  >
+                    <Plus size={15} />
+                    Nova
+                  </button>
+                </div>
+                <div className="settings-list">
+                  {s.accounts.map((a) => (
+                    <div key={a.id}>
+                      <button
+                        onClick={() =>
+                          setEditor({ type: "account", value: { ...a } })
+                        }
+                      >
+                        <Wallet size={18} />
+                        {a.name}
+                      </button>
+                      <button
+                        className="icon-button"
+                        aria-label={`Excluir conta ${a.name}`}
+                        onClick={() => {
+                          void safeMutate({
+                            action: "delete",
+                            payload: { entity: "account", id: a.id },
+                          });
+                        }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <section>
+                <h3>
+                  <Download size={18} />
+                  Seus dados com você
+                </h3>
+                <p>
+                  CSV exporta os lançamentos. JSON inclui cartões, parcelas,
+                  pagamentos, recorrentes, seus tipos, categorias e orçamentos. O
+                  arquivo contém informações financeiras sensíveis; guarde-o em um
+                  lugar seguro.
+                </p>
+                <div className="dialog-actions">
+                  <button
+                    className="button secondary"
+                    disabled={settingsBusy}
+                    onClick={() => {
+                      void exportData("csv");
+                    }}
+                  >
+                    Exportar CSV
+                  </button>
+                  <button
+                    className="button secondary"
+                    disabled={settingsBusy}
+                    onClick={() => {
+                      void exportData("json");
+                    }}
+                  >
+                    Exportar JSON
+                  </button>
+                </div>
+              </section>
+              <Backups
+                repository={repository}
+                onRestored={(record) => {
+                  commit(record);
+                  setInvoice(null);
+                  setHistory(null);
+                  setDeleteTarget(null);
+                  setPageFilters({});
+                  setPage("home");
+                  setToast(null);
+                }}
+              />
+              <section>
+                <h3 className="danger-text">Excluir meus dados</h3>
+                <p>
+                  Remove todos os registros financeiros desta conta. Exporte antes
+                  se quiser guardar uma cópia. Contas e categorias personalizadas
+                  também serão removidas; o app volta às opções iniciais vazias.
+                  Backups no Drive não são apagados.
+                </p>
+                <label>
+                  Digite EXCLUIR para confirmar
+                  <input
+                    value={clearConfirm}
+                    onChange={(e) => setClearConfirm(e.target.value)}
+                    autoComplete="off"
+                  />
+                </label>
+                <button
+                  className="button danger"
+                  disabled={clearConfirm !== "EXCLUIR" || settingsBusy}
+                  onClick={async () => {
+                    setSettingsBusy(true);
+                    try {
+                      await mutate({
+                        action: "clear",
+                        payload: { confirmation: "EXCLUIR" },
+                      });
+                      setClearConfirm("");
+                      setToast({ text: "Dados financeiros excluídos." });
+                    } catch (e) {
+                      setToast({ text: (e as Error).message, error: true });
+                    } finally {
+                      setSettingsBusy(false);
+                    }
+                  }}
+                >
+                  Excluir todos os dados
+                </button>
+              </section>
+            </div>
+          </Dialog>
+        )}
+      </DialogExit>
       {toast &&
         createPortal(
           <div

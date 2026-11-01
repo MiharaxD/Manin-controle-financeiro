@@ -5,7 +5,7 @@
 - Espaço pessoal começa vazio (só categorias, tipos de recorrentes e duas contas editáveis). Demonstração isolada em `/demo/` apenas em desenvolvimento.
 - Cartões só com apelido; crédito segue o mês da compra com parcelas consecutivas. Recorrentes e apelidos na tela Recorrentes; tipos personalizados nas Preferências. Lançamentos novos só despesa/receita; transferências antigas ficam como histórico.
 - Backup JSON v3 (lê v1/v2) com restauração atômica e confirmada. Google Drive manual (`drive.appdata`), sem sincronização. O menu lateral mostra a data do último backup (export JSON guardado em `localStorage` `manin-last-backup-<modo>` + recibos do Drive) e avisa após 14 dias.
-- Interface no estilo menu de pausa de Persona 5 (claro e escuro) com animações de entrada, troca de tela e seleção: herói Consumo × Caixa, filtros de Transações recolhidos com chips e lista agrupada por dia, "Mais" no celular.
+- Interface no estilo menu de pausa de Persona 5 (claro e escuro) com animações de entrada, troca de tela, seleção e fechamento de janelas: herói Consumo × Caixa, filtros de Transações recolhidos com chips e lista agrupada por dia, "Mais" no celular.
 - Produção: https://manin.vercel.app/ (projeto Vercel `manin-controle-financeiro`, time `mihara1`), com `NEXT_PUBLIC_GOOGLE_CLIENT_ID` em Production. Push no `main` do GitHub `MiharaxD/Manin-controle-financeiro` publica sozinho; as URLs `*-mihara1.vercel.app` exigem login da Vercel.
 
 ## Pendências (ordem de prioridade)

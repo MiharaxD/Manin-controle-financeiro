@@ -9,7 +9,7 @@ import {
 } from "@/lib/backup";
 import { GoogleDrive, prepareGoogle, type DriveFile } from "@/lib/google-drive";
 import type { LocalStore, LocalRecord, DriveReceipt } from "@/lib/local-store";
-import { Dialog } from "./ui/dialog";
+import { Dialog, DialogExit } from "./ui/dialog";
 
 const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 function time(value: string) {
@@ -345,75 +345,77 @@ export function Backups({
           {error}
         </p>
       )}
-      {pending && (
-        <Dialog
-          open
-          title="Substituir dados locais?"
-          onClose={() => {
-            if (!busy) setPending(null);
-          }}
-        >
-          <p className="dialog-copy">
-            Origem: {pending.origin}. Backup de{" "}
-            {time(pending.backup.exported_at)}.
-          </p>
-          <p className="dialog-copy">{backupSummary(pending.backup)}</p>
-          <p className="dialog-copy">
-            Todos os lançamentos, parcelas, pagamentos, contas, cartões,
-            recorrências, categorias e orçamentos atuais deste espaço serão
-            substituídos. Os dados não serão mesclados. Exporte o JSON atual
-            antes, se quiser preservá-lo. Outros espaços, a demonstração e
-            arquivos do Drive não serão alterados.
-          </p>
-          {error && (
-            <p role="alert" className="form-error">
-              {error}
+      <DialogExit>
+        {pending && (
+          <Dialog
+            open
+            title="Substituir dados locais?"
+            onClose={() => {
+              if (!busy) setPending(null);
+            }}
+          >
+            <p className="dialog-copy">
+              Origem: {pending.origin}. Backup de{" "}
+              {time(pending.backup.exported_at)}.
             </p>
-          )}
-          <div className="dialog-actions">
-            <button
-              className="button secondary"
-              disabled={!!busy}
-              onClick={() => setPending(null)}
-            >
-              Cancelar
-            </button>
-            <button
-              className="button danger"
-              disabled={!!busy}
-              onClick={() => {
-                void task("restore", async () => {
-                  const record = await repository.replace(
-                    pending.backup,
-                    pending.revision,
-                  );
-                  onRestored(record);
-                  if (pending.receipt) {
-                    setReceipts([pending.receipt]);
-                    try {
-                      await repository.recordDriveBackup(
-                        pending.receipt,
-                        record.dataset_id,
-                      );
-                    } catch {
-                      setError(
-                        "Os dados foram restaurados, mas a data do backup não pôde ser guardada neste navegador.",
-                      );
-                    }
-                  } else setReceipts([]);
-                  setPending(null);
-                  setMessage(
-                    "Backup restaurado neste dispositivo. " +
-                      backupSummary(pending.backup),
-                  );
-                });
-              }}
-            >
-              {busy === "restore" ? "Restaurando…" : "Substituir e restaurar"}
-            </button>
-          </div>
-        </Dialog>
-      )}
+            <p className="dialog-copy">{backupSummary(pending.backup)}</p>
+            <p className="dialog-copy">
+              Todos os lançamentos, parcelas, pagamentos, contas, cartões,
+              recorrências, categorias e orçamentos atuais deste espaço serão
+              substituídos. Os dados não serão mesclados. Exporte o JSON atual
+              antes, se quiser preservá-lo. Outros espaços, a demonstração e
+              arquivos do Drive não serão alterados.
+            </p>
+            {error && (
+              <p role="alert" className="form-error">
+                {error}
+              </p>
+            )}
+            <div className="dialog-actions">
+              <button
+                className="button secondary"
+                disabled={!!busy}
+                onClick={() => setPending(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="button danger"
+                disabled={!!busy}
+                onClick={() => {
+                  void task("restore", async () => {
+                    const record = await repository.replace(
+                      pending.backup,
+                      pending.revision,
+                    );
+                    onRestored(record);
+                    if (pending.receipt) {
+                      setReceipts([pending.receipt]);
+                      try {
+                        await repository.recordDriveBackup(
+                          pending.receipt,
+                          record.dataset_id,
+                        );
+                      } catch {
+                        setError(
+                          "Os dados foram restaurados, mas a data do backup não pôde ser guardada neste navegador.",
+                        );
+                      }
+                    } else setReceipts([]);
+                    setPending(null);
+                    setMessage(
+                      "Backup restaurado neste dispositivo. " +
+                        backupSummary(pending.backup),
+                    );
+                  });
+                }}
+              >
+                {busy === "restore" ? "Restaurando…" : "Substituir e restaurar"}
+              </button>
+            </div>
+          </Dialog>
+        )}
+      </DialogExit>
     </>
   );
 }
