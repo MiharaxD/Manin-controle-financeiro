@@ -15,6 +15,8 @@
   - Proíbe: banco, dígitos, limite, fechamento ou vencimento no cadastro; mostrar `due_date` como vencimento bancário.
   - Exige: migração preserva IDs, parcelas, pagamentos e competências antigas sem recalcular.
 
+- **Parcelado conta por parcela (pedido do usuário).** Uma compra 2× de R$ 56,86 soma R$ 28,43 em cada mês, não o total no mês da compra; a linha mostra "Crédito 1/2".
+
 - **Recorrentes e apelidos na mesma tela, em abas ("Assinaturas e contas" × "Cartões"); tipos nas Preferências.** Criação de apelido/tipo dentro do formulário. Recorrentes antigas sem tipo ficam em Outros.
 
 - **Transferências descontinuadas.** Novos lançamentos só despesa/receita.

@@ -1,4 +1,11 @@
-import type { Card, FinancialData, Snapshot, Transaction } from "./types";
+import type {
+  Card,
+  Entry,
+  FinancialData,
+  Installment,
+  Snapshot,
+  Transaction,
+} from "./types";
 
 export const MAX_CENTS = 2_000_000_000;
 export function parseMoney(value: string): number {
@@ -128,6 +135,37 @@ export function schedule(transaction: Transaction, card: Card) {
     due_date: addMonths(first, i, 31),
   }));
 }
+// Installment purchases weigh on each billing month; later parts open their month.
+export function entries(
+  transactions: Transaction[],
+  installments: Installment[],
+): Entry[] {
+  const parts = new Map<string, Installment[]>();
+  for (const i of installments) {
+    const list = parts.get(i.transaction_id);
+    if (list) list.push(i);
+    else parts.set(i.transaction_id, [i]);
+  }
+  return transactions.flatMap((t): Entry[] => {
+    const own =
+      t.payment_method === "credit" && t.installments_count > 1
+        ? parts.get(t.id)
+        : undefined;
+    if (!own?.length) return [{ ...t, installment: null, source: t }];
+    return [...own]
+      .sort((a, b) => a.number - b.number)
+      .map((i) => ({
+        ...t,
+        amount_cents: i.amount_cents,
+        purchase_date:
+          i.billing_month === monthOf(t.purchase_date)
+            ? t.purchase_date
+            : i.billing_month,
+        installment: i.number,
+        source: t,
+      }));
+  });
+}
 export function monthlyEquivalent(cents: number, interval: number) {
   return Math.round(cents / interval);
 }
@@ -154,7 +192,8 @@ export function buildSnapshot(
   month: string,
   today: string,
 ): Snapshot {
-  const live = data.transactions.filter((t) => !t.deleted_at);
+  const liveTransactions = data.transactions.filter((t) => !t.deleted_at),
+    live = entries(liveTransactions, data.installments);
   const monthly = Array.from({ length: 6 }, (_, i) => {
     const m = addMonths(month, i - 5, 1);
     const actual = live.filter(
@@ -163,7 +202,7 @@ export function buildSnapshot(
         t.status === "actual" &&
         t.purchase_date <= today,
     );
-    const sum = (tx: Transaction[]) =>
+    const sum = (tx: Entry[]) =>
       tx.reduce((n, t) => n + t.amount_cents, 0);
     return {
       month: m,
@@ -222,7 +261,7 @@ export function buildSnapshot(
   >();
   data.installments
     .filter((i) =>
-      live.some(
+      liveTransactions.some(
         (t) =>
           t.id === i.transaction_id &&
           t.status === "actual" &&

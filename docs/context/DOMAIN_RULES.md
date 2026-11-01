@@ -2,7 +2,7 @@
 
 - Valores positivos em centavos inteiros, até 2 bilhões por registro. Cálculos e divisões usam inteiros.
 - Datas de calendário `YYYY-MM-DD`, meses `YYYY-MM-01`. Hoje usa America/Sao_Paulo; datas não passam pelo fuso local.
-- Consumo reconhece o valor integral da compra efetiva na data da compra. Parcelas representam compromissos, sem repetir consumo.
+- Consumo reconhece a compra efetiva na data da compra; no crédito parcelado, cada parcela pesa no seu mês (`entries` em `finance.ts`): a 1ª na data da compra, as seguintes no dia 1º do mês delas (antes disso são previsão). Totais, categorias, orçamentos e listas usam essas entradas; editar/excluir age sobre a compra inteira.
 - Caixa considera receitas/despesas efetivas sem crédito e pagamentos de faturas pela data de pagamento. Transferências próprias não entram em receita/despesa.
 - Novos lançamentos aceitam apenas despesa e receita. Transferências antigas são preservadas no histórico/backups, sem criação, edição ou reutilização; não compõem gastos, receita ou caixa.
 - Cartões contêm somente ID interno e apelido. Novas compras no crédito começam no mês da compra; parcelas avançam um mês de cada vez, inclusive em dezembro/fevereiro. Divisão distribui o resto de centavos nas primeiras parcelas.

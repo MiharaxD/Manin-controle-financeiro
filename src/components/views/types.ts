@@ -1,5 +1,6 @@
 import type {
   CategoryTotal,
+  Entry,
   Filters,
   Installment,
   InvoicePayment,
@@ -12,7 +13,7 @@ export type Loader = (
   page: number,
   signal?: AbortSignal,
 ) => Promise<{
-  rows: Transaction[];
+  rows: Entry[];
   count: number;
   // Over every filtered row, not only the current page.
   totals?: { income: number; expense: number };

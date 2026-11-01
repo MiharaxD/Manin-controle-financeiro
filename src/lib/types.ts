@@ -39,6 +39,11 @@ export interface Transaction {
   deleted_at: string | null;
   credit_month: string | null;
 }
+// A transaction as it weighs on a month: each credit installment becomes its own entry.
+export interface Entry extends Transaction {
+  installment: number | null;
+  source: Transaction;
+}
 export interface Installment {
   id: string;
   transaction_id: string;
@@ -110,7 +115,7 @@ export interface Snapshot {
   monthly: MonthlyTotal[];
   category_totals: CategoryTotal[];
   invoices: Invoice[];
-  transactions: Transaction[];
+  transactions: Entry[];
 }
 export interface FinancialData {
   categories: Category[];

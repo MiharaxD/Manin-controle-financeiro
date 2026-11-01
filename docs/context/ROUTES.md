@@ -20,7 +20,7 @@ App de página única: `src/app/page.tsx` → `src/components/local-app.tsx` (ab
 - **Arquivo grande:** `forms.tsx` (~1.100 linhas); busque `editor.type ===`.
 
 ## Regras financeiras (dinheiro, datas, parcelas, recorrências, indicadores)
-- **Ir direto para:** `docs/context/DOMAIN_RULES.md`, depois `src/lib/finance.ts` (dinheiro, calendário America/Sao_Paulo, `splitInstallments`, `buildSnapshot`) e `src/lib/engine.ts` (`applyMutation`, `generateDue`).
+- **Ir direto para:** `docs/context/DOMAIN_RULES.md`, depois `src/lib/finance.ts` (dinheiro, calendário America/Sao_Paulo, `splitInstallments`, `entries` = compra → linhas por parcela, usadas por `buildSnapshot` e `loadTransactions`) e `src/lib/engine.ts` (`applyMutation`, `generateDue`).
 - **Testes:** `tests/finance.test.ts`, `tests/recurrences.test.ts`; `pnpm test`.
 - **Cuidados:** centavos inteiros; testar virada de mês, fevereiro/bissexto e dezembro. Mutação inválida deve lançar erro sem alterar dados.
 

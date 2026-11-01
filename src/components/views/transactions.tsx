@@ -8,7 +8,7 @@ import {
   X,
 } from "lucide-react";
 import { addMonths, formatDate, money } from "@/lib/finance";
-import type { Snapshot, Transaction, Filters } from "@/lib/types";
+import type { Entry, Snapshot, Transaction, Filters } from "@/lib/types";
 import { emptyFilters } from "@/lib/types";
 import type { Loader } from "./types";
 import { Empty, TransactionRows } from "./shared";
@@ -47,7 +47,7 @@ export function Transactions({
     ...period,
     ...initialFilters,
   });
-  const [rows, setRows] = useState<Transaction[]>([]),
+  const [rows, setRows] = useState<Entry[]>([]),
     [count, setCount] = useState(0),
     [totals, setTotals] = useState<{ income: number; expense: number }>(),
     [days, setDays] = useState<Record<string, number>>({}),

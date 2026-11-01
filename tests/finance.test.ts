@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   addMonths,
   demoSnapshot,
+  entries,
   invoiceDates,
   isDate,
   moneyInput,
@@ -268,4 +269,67 @@ test("editar compra não paga refaz parcelas; data futura não vira fatura confi
     after = demoSnapshot(future, "2026-10-01", "2026-10-08");
   assert.deepEqual(before.invoices, after.invoices);
   assert.equal(after.monthly.at(-1)!.planned, 99999);
+});
+test("parcelas pesam no mês de cada uma, inclusive na virada do ano", () => {
+  const data = createDemo("2026-10-08"),
+    template = data.transactions.find((t) => t.payment_method === "credit")!;
+  const purchase = (
+    amount_cents: number,
+    purchase_date: string,
+    count: number,
+  ) => ({
+    action: "transaction",
+    payload: {
+      ...template,
+      id: crypto.randomUUID(),
+      amount_cents,
+      purchase_date,
+      installments_count: count,
+      recurrence_id: null,
+      occurrence_date: null,
+      status: "actual",
+    },
+  });
+  const next = applyDemoMutation(data, purchase(5686, "2026-10-05", 2));
+  const added = (month: string, today: string) => {
+    const [a, b] = [next, data].map(
+      (d) => demoSnapshot(d, month, today).monthly.at(-1)!,
+    );
+    return { expense: a.expense - b.expense, planned: a.planned - b.planned };
+  };
+  assert.equal(added("2026-10-01", "2026-10-08").expense, 2843);
+  assert.equal(added("2026-11-01", "2026-11-01").expense, 2843);
+  assert.equal(added("2026-12-01", "2026-12-01").expense, 0);
+  // Next month's part is a commitment until that month starts.
+  assert.deepEqual(added("2026-11-01", "2026-10-08"), {
+    expense: 0,
+    planned: 2843,
+  });
+  const category = (d: typeof data) =>
+    demoSnapshot(d, "2026-10-01", "2026-10-08").category_totals.find(
+      (c) => c.category_id === template.category_id,
+    )!.total;
+  assert.equal(category(next) - category(data), 2843);
+  const listed = demoSnapshot(next, "2026-10-01", "2026-10-08")
+    .transactions.find((t) => t.source.amount_cents === 5686)!;
+  assert.equal(listed.amount_cents, 2843);
+  assert.equal(listed.installment, 1);
+  const invoiced = (d: typeof data, month: string) =>
+    demoSnapshot(d, "2026-10-01", "2026-10-08")
+      .invoices.filter((i) => i.billing_month === month)
+      .reduce((n, i) => n + i.total, 0);
+  for (const month of ["2026-10-01", "2026-11-01"])
+    assert.equal(invoiced(next, month) - invoiced(data, month), 2843);
+  const december = applyDemoMutation(data, purchase(10001, "2026-12-15", 3));
+  const id = december.transactions.find((t) => t.amount_cents === 10001)!.id;
+  assert.deepEqual(
+    entries(december.transactions, december.installments)
+      .filter((t) => t.id === id)
+      .map((t) => [t.purchase_date, t.amount_cents, t.installment]),
+    [
+      ["2026-12-15", 3334, 1],
+      ["2027-01-01", 3334, 2],
+      ["2027-02-01", 3333, 3],
+    ],
+  );
 });

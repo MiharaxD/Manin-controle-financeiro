@@ -26,6 +26,7 @@ import {
 import {
   addMonths,
   buildSnapshot,
+  entries,
   monthLabel,
   suggestCategory,
   todaySP,
@@ -263,10 +264,12 @@ export function FinanceApp({
       if (signal?.aborted)
         throw new DOMException("Consulta cancelada", "AbortError");
       const record = await repository.read();
-      const rows = record.data.transactions
+      const rows = entries(
+        record.data.transactions.filter((t) => !t.deleted_at),
+        record.data.installments,
+      )
         .filter(
           (t) =>
-            !t.deleted_at &&
             (!filters.from || t.purchase_date >= filters.from) &&
             (!filters.to || t.purchase_date <= filters.to) &&
             (!filters.kind || t.kind === filters.kind) &&

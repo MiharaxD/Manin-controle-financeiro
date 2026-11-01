@@ -9,7 +9,7 @@ import {
 } from "react";
 import { ArrowDownLeft, Repeat2, Wallet, Ellipsis } from "lucide-react";
 import { formatDate, money } from "@/lib/finance";
-import type { Budget, Snapshot, Transaction } from "@/lib/types";
+import type { Budget, Entry, Snapshot, Transaction } from "@/lib/types";
 import { CategoryIcon } from "../icons";
 // <details> only closes from its summary; an open menu would cover the next row.
 export function RowMenu({
@@ -225,7 +225,7 @@ export function TransactionRows({
   remove,
   days,
 }: {
-  rows: Transaction[];
+  rows: Entry[];
   s: Snapshot;
   edit: (t: Transaction) => void;
   reuse: (t: Transaction) => void;
@@ -240,7 +240,7 @@ export function TransactionRows({
           projected = t.status === "planned" || t.purchase_date > s.today,
           net = days?.[t.purchase_date] ?? 0;
         return (
-          <Fragment key={t.id}>
+          <Fragment key={`${t.id}/${t.installment ?? 0}`}>
             {days && t.purchase_date !== rows[i - 1]?.purchase_date && (
               <div className="day-heading">
                 <span className="day-stamp">
@@ -284,7 +284,7 @@ export function TransactionRows({
             </span>
             <button
               className="transaction-text"
-              onClick={() => edit(t)}
+              onClick={() => edit(t.source)}
               disabled={t.kind === "transfer"}
             >
               <strong>
@@ -300,8 +300,10 @@ export function TransactionRows({
                 )}
                 {t.payment_method === "credit" && (
                   <>
-                    <span className="separator">·</span>Crédito{" "}
-                    {t.installments_count > 1 ? `${t.installments_count}×` : ""}
+                    <span className="separator">·</span>Crédito
+                    {t.installment
+                      ? ` ${t.installment}/${t.installments_count}`
+                      : ""}
                   </>
                 )}
                 {projected && <span className="badge forecast">Previsão</span>}
@@ -317,12 +319,12 @@ export function TransactionRows({
               label={`Ações: ${t.merchant || t.description || "lançamento"}`}
             >
               {t.kind !== "transfer" && (
-                <button onClick={() => edit(t)}>Editar</button>
+                <button onClick={() => edit(t.source)}>Editar</button>
               )}
               {t.kind !== "transfer" && (
-                <button onClick={() => reuse(t)}>Reutilizar</button>
+                <button onClick={() => reuse(t.source)}>Reutilizar</button>
               )}
-              <button className="danger-text" onClick={() => remove(t)}>
+              <button className="danger-text" onClick={() => remove(t.source)}>
                 Excluir
               </button>
             </RowMenu>
