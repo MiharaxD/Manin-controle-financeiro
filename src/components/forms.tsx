@@ -1,6 +1,12 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, CreditCard } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  CreditCard,
+  Minus,
+  Plus,
+} from "lucide-react";
 import {
   money,
   moneyInput,
@@ -228,6 +234,12 @@ export function TransactionForm({
       controller.abort();
     };
   }, [merchant, manualCategory, suggest, s.transactions]);
+  const installmentsId = useId();
+  const changeCount = (n: number) => {
+    setCount(n);
+    setMakeRecurring(false);
+    setSelectedRecurrence("");
+  };
   const reconcile = (id: string) => {
     setMakeRecurring(false);
     setSelectedRecurrence(id);
@@ -455,21 +467,37 @@ export function TransactionForm({
             onChange={setCard}
             createCard={createCard}
           />
-          <label>
-            Parcelas
-            <input
-              type="number"
-              value={count}
-              onChange={(e) => {
-                setCount(Number(e.target.value));
-                setMakeRecurring(false);
-                setSelectedRecurrence("");
-              }}
-              min={1}
-              max={60}
-              required
-            />
-          </label>
+          <div className="field-group">
+            <label htmlFor={installmentsId}>Parcelas</label>
+            <div className="stepper">
+              <button
+                type="button"
+                aria-label="Menos uma parcela"
+                disabled={count <= 1}
+                onClick={() => changeCount(count - 1)}
+              >
+                <Minus size={18} />
+              </button>
+              <input
+                type="number"
+                id={installmentsId}
+                inputMode="numeric"
+                value={count}
+                onChange={(e) => changeCount(Number(e.target.value))}
+                min={1}
+                max={60}
+                required
+              />
+              <button
+                type="button"
+                aria-label="Mais uma parcela"
+                disabled={count >= 60}
+                onClick={() => changeCount(count + 1)}
+              >
+                <Plus size={18} />
+              </button>
+            </div>
+          </div>
         </div>
       ) : (
         <label>

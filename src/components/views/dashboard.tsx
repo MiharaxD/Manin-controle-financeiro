@@ -34,6 +34,12 @@ export function Dashboard({
               previous.comparable_expense,
           )
         : null;
+  const history = s.monthly.slice(0, -1).filter((m) => m.expense > 0),
+    average = history.length
+      ? Math.round(
+          history.reduce((n, m) => n + m.expense, 0) / history.length,
+        )
+      : 0;
   const bills = s.invoices
     .filter((i) => i.billing_month === s.month)
     .reduce((n, i) => n + i.remaining, 0);
@@ -57,7 +63,18 @@ export function Dashboard({
           <div className="hero-amount">{money(current.expense)}</div>
           <div className="comparison">
             {comparison === null ? (
-              <span>Comece a construir seu histórico.</span>
+              <span>
+                {history.length ? (
+                  <>
+                    {history.length === 1
+                      ? "Mês anterior"
+                      : `Média dos últimos ${history.length} meses`}
+                    : <strong>{money(average)}</strong>
+                  </>
+                ) : (
+                  "Comece a construir seu histórico."
+                )}
+              </span>
             ) : (
               <>
                 <span className={comparison <= 0 ? "trend-good" : "trend-high"}>
@@ -211,15 +228,12 @@ export function Dashboard({
               </p>
             )}
             <div className="panel-footer">
-              <span>
-                {current.planned ? (
-                  <>
-                    Despesas previstas <strong>{money(current.planned)}</strong>
-                  </>
-                ) : (
-                  "Nenhuma despesa prevista"
-                )}
-              </span>
+              {current.planned > 0 && (
+                <span>
+                  Lançamentos previstos{" "}
+                  <strong>{money(current.planned)}</strong>
+                </span>
+              )}
               <span>
                 Mensal <strong>{money(monthly)}</strong>
               </span>
