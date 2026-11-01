@@ -42,7 +42,8 @@ App de página única: `src/app/page.tsx` → `src/components/local-app.tsx` (ab
 ## PWA / offline
 - **Ir direto para:** `public/sw.js`, `scripts/create-offline-manifest.mjs`, `src/components/pwa.tsx`, `src/app/manifest.ts`, `public/offline.html`.
 - **Testes:** `pnpm build && pnpm test:offline` (`tests/offline/offline.spec.ts`).
-- **Cuidados:** cache só de arquivos públicos de `out/`; nunca dados financeiros, Drive ou OAuth. SW desativado em desenvolvimento.
+- **Cuidados:** cache só de arquivos públicos de `out/`; nunca dados financeiros, Drive ou OAuth. SW desativado em desenvolvimento. `audio/` fica fora do cache (o SW não atende range); sem rede a música não toca.
+- **Música de fundo:** `src/components/music-toggle.tsx` (áudio em loop + botão na `.topbar-actions`; preferência em `localStorage` `manin-music`), arquivo em `public/audio/`.
 
 ## Build, deploy e ambiente
 - **Ir direto para:** `package.json`, `next.config.ts`, `vercel.json` (headers, `out/`), `.env.example` (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`, opcional), `scripts/serve-static.mjs`, `Iniciar-Manin.cmd`.

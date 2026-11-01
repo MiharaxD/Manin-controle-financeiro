@@ -33,6 +33,7 @@ import {
 import { csv, download } from "@/lib/export";
 import type { LocalStore, LocalRecord } from "@/lib/local-store";
 import { Backups } from "./backups";
+import { MusicToggle } from "./music-toggle";
 import type {
   Card,
   DemoData,
@@ -570,6 +571,7 @@ export function FinanceApp({
             >
               <RefreshCw size={18} className={refreshing ? "spinning" : ""} />
             </button>
+            <MusicToggle />
             <button
               className="icon-button"
               onClick={toggleTheme}

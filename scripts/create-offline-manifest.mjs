@@ -10,6 +10,7 @@ async function scan(dir, prefix = "") {
   )) {
     const rel = prefix + entry.name;
     if (rel === "demo" || rel.startsWith("demo/")) continue;
+    if (rel.startsWith("audio/")) continue; // áudio pede trechos (range); fica fora do cache do SW
     if (entry.isDirectory()) await scan(join(dir, entry.name), rel + "/");
     else if (
       !rel.endsWith(".map") &&
