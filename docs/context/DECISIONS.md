@@ -1,39 +1,34 @@
-# Decisões
+# Decisões ativas
 
-## Dados no dispositivo
+- **Dados só no dispositivo.** IndexedDB + Next.js exportado estático, sem backend financeiro.
+  - Por quê: funcionar sem conta, servidor ou conexão após a primeira abertura.
+  - Proíbe: rotas de API, funções serverless, banco remoto, sincronização automática. Recuperação é só por backup.
 
-Decisão: substituir Supabase por IndexedDB e publicar o Next.js como site estático.
-Motivo: dados financeiros precisam funcionar sem conta, servidor financeiro ou conexão depois da primeira abertura.
-Consequência: a origem/dispositivo/navegador define o espaço. Limpeza do navegador, mudança de origem ou perda do dispositivo exige recuperação por backup; não há sincronização automática.
+- **Gravação e restauração atômicas.** Uma transação IndexedDB por operação; restauração substitui o conjunto inteiro (sem mesclar) após confirmação com origem/data/contagem e revisão esperada.
+  - Por quê: evitar perdas parciais, referências quebradas e sobrescrever mudanças de outra aba.
+  - Exige: validação completa antes de gravar; falha preserva o registro anterior. Arquivo desconhecido, parcial ou com proprietários misturados é recusado.
 
-## Integridade e backup
+- **Backup `manin-backup` v3.** Inclui todo o conjunto, tipos de recorrentes e IDs; lê v2 e o exportador completo v1.
+  - Exige: limite de 20 MB / 100 mil registros; novo formato de dados precisa continuar lendo backups antigos.
 
-Decisão: gravações relacionadas e restauração são transações atômicas; backup `manin-backup` versão 3 inclui todo o conjunto, tipos de recorrentes e IDs.
-Motivo: impedir perdas parciais, referências quebradas e sobrescrita de alterações feitas em outra aba.
-Consequência: validação completa antes de substituir, confirmação com contagem/origem/data e revisão esperada. Parser reconhece backups locais/Drive v2 e o exportador completo v1 antigo; desconhecidos, parciais ou mistura de proprietários são recusados. Limite de 20 MB/100 mil registros garante backups restauráveis. JSON não executa conteúdo e não é criptografado pelo Manin.
+- **Cartão = só apelido (pedido do usuário).** Compras no crédito começam no mês da compra; parcelas em meses consecutivos.
+  - Proíbe: banco, dígitos, limite, fechamento ou vencimento no cadastro; mostrar `due_date` como vencimento bancário.
+  - Exige: migração preserva IDs, parcelas, pagamentos e competências antigas sem recalcular.
 
-## Crédito e recorrentes simplificados
+- **Recorrentes e apelidos na mesma tela; tipos nas Preferências.** Criação de apelido/tipo dentro do formulário. Recorrentes antigas sem tipo ficam em Outros.
 
-Decisão: por pedido do usuário, cartões guardam só apelido e novas compras/parcelas seguem o mês da compra, com meses seguintes consecutivos. Recorrentes e apelidos compartilham a tela Recorrentes, com criação de apelido dentro dos formulários. Tipos iniciais e personalizados são geridos nas Preferências.
-Consequência: nenhum cadastro de banco, dígitos, limite, fechamento ou vencimento. Migração atômica valida o formato anterior, remove esses metadados e preserva IDs/parcelas/pagamentos/competências. Recorrentes antigas ficam em Outros até edição. Transferências saem dos novos lançamentos; registros antigos são históricos sem edição/reutilização, preservados nos backups e fora dos totais financeiros.
+- **Transferências descontinuadas.** Novos lançamentos só despesa/receita.
+  - Exige: transferências antigas preservadas no histórico e backup, sem edição/reutilização e fora dos totais.
 
-## Google Drive manual
+- **Google Drive manual e mínimo.** Token OAuth só em memória, escopo único `drive.appdata`, conta via `about.get`.
+  - Proíbe: envio automático, servidor intermediário, guardar token.
+  - Exige: envio só é concluído com ID/tamanho/metadados confirmados pela API; sem cliente OAuth o JSON local segue disponível.
 
-Decisão: token OAuth em memória e somente `drive.appdata`; backups na pasta privada do app. Conta confirmada por `about.get`.
-Motivo: menor acesso possível e nenhum servidor intermediário do Manin.
-Consequência: conectar não envia; envio manual exige confirmação de ID/tamanho/metadados pela API. Expiração exige nova ação. Falta de cliente OAuth mantém JSON local disponível e apresenta instruções reais.
+- **Demonstração isolada.** Conjunto IndexedDB `demo` separado, só em desenvolvimento.
+  - Proíbe: criar demo em produção; backup com origem demo substituir dados pessoais.
 
-## Demonstração isolada
+- **Identidade visual inspirada em Persona 5.** Preto `#0B0B0D`, papel `#F4F0E7`, vermelho `#FF1828`; Anton/Inter locais (OFL).
+  - Exige: só decoração inclina/recorta/tem textura; valores, tabelas e campos horizontais; estados financeiros separados da cor da marca; mesma composição nos dois temas; respeitar redução de movimento.
 
-Decisão: dados fictícios em outro conjunto IndexedDB, somente em desenvolvimento.
-Motivo: testar os fluxos sem misturar exemplos com registros pessoais.
-Consequência: produção não cria demonstração; backup com origem demo não pode substituir dados pessoais.
-
-## Identidade visual
-
-Decisão: direção inspirada na UI de Persona 5, preto `#0B0B0D`, papel `#F4F0E7`, vermelho `#FF1828`, Anton/Inter locais com OFL.
-Consequência: somente decoração tem inclinação/recorte/textura. Valores, tabelas e campos horizontais; estados financeiros separados da marca; gráficos e legendas compartilham cores e escalas imediatas. Os dois temas mantêm a composição e redução de movimento.
-
-## Ferramentas
-
-Node 22+, versões fixadas e lockfile; TypeScript 6/ESLint 9 enquanto os plugins do Next.js exigirem estas versões. Não atualizar ferramentas principais isoladamente.
+- **Ferramentas fixadas.** Node 22+, versões exatas e lockfile; TypeScript 6 / ESLint 9 enquanto os plugins do Next.js exigirem.
+  - Proíbe: atualizar ferramenta principal isoladamente.

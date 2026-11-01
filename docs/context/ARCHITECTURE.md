@@ -1,14 +1,16 @@
-# Arquitetura
+# Fluxos entre camadas
 
-- Next.js App Router com `output: export`: `out/` contém apenas arquivos públicos estáticos. Sem rotas financeiras, autenticação ou backend.
-- `src/components/local-app.tsx` abre o conjunto local antes de montar as telas; `app.tsx` coordena navegação e dados, `forms.tsx` usa sugestões locais e permite criar apelido sem perder o rascunho. Recorrentes e crédito compartilham uma página; tipos são geridos nas Preferências.
-- `src/lib/finance.ts` e `engine.ts`: dinheiro/calendário, indicadores, mutações e recorrências puros. Compartilhados entre dados pessoais, demonstração e testes.
-- `src/lib/local-store.ts`: IndexedDB `manin-device-v1`, versão 2, object store `datasets`, chaves `local`/`demo`. Envelope v2 contém dados, ID do conjunto, revisão e metadados locais. Envelope antigo v1 migra na primeira leitura/gravação atômica; falha mantém o registro anterior inteiro. BroadcastChannel avisa outras abas.
-- `records.ts`: valida campos, dinheiro, datas, referências, tipos de recorrentes e invariantes completos. `legacy-records.ts` valida o calendário antigo antes de `migrations.ts` remover metadados do cartão, adicionar tipos e preservar competências. `backup.ts`: JSON v3 com importação v1/v2. Restauração compara revisão após confirmação e substitui atomicamente; não mescla. Drive lista os marcadores v2/v3 e só cria v3.
-- `backups.tsx`: arquivo local e Drive passam pela mesma confirmação, com origem/data/contagem. `google-drive.ts`: GIS token model, único escopo `drive.appdata`, email por `about.get`, uploads/downloads diretos ao Google. Tokens apenas em memória; metadados confirmados ficam localmente. Sem envio automático.
-- `demo.ts`: dados fictícios separados; rota e inicialização de demonstração só em desenvolvimento. Dados pessoais começam com configurações vazias, nunca com lançamentos fictícios.
-- `globals.css`: identidade preto/papel/vermelho, fontes locais, responsividade e redução de movimento. Radix mantém foco dos modais.
-- `public/sw.js` + `scripts/create-offline-manifest.mjs`: cache por versão somente de arquivos públicos exportados, inclusive chunks de relatórios. Não cacheiam JSON financeiro, Drive ou OAuth. Registro desativado em desenvolvimento; uso offline verificado na compilação estática.
-- `scripts/serve-static.mjs`: serve `out/` localmente, sem tratar registros. `vercel.json` configura hospedagem estática. `Iniciar-Manin.cmd` mantém o início Windows sem depender de npm no terminal.
-- Testes: domínio, IndexedDB via fake-indexeddb, parser/migração e invariantes; navegador em desktop/celular; teste offline desliga seu servidor próprio. Drive usa respostas controladas em testes, sem alegar conexão real.
-- `docs/migration-export.sql`: consulta legada somente de leitura, filtrada por proprietário; nunca é executada automaticamente. Nenhum banco remoto foi alterado.
+## Abertura
+`page.tsx` → `LocalApp` cria `LocalStore("local" | "demo")` e chama `refresh()`: numa transação do IndexedDB `manin-device-v1` (v2, store `datasets`, chaves `local`/`demo`) lê o registro (ou cria pelo seed), valida com `validateRecord` — envelope antigo v1 passa por `migratePreviousData` (`legacy-records.ts` valida, `migrations.ts` converte, `records.validateData` confere) — roda `generateDue` e regrava. O `FinanceApp` monta com o snapshot (`finance.buildSnapshot`).
+
+## Mutação (salvar, excluir, pagar fatura)
+Formulário (`forms.tsx`) monta uma `Mutation` → `app.tsx` `save`/`safeMutate` → `LocalStore.mutate` → numa transação: `applyMutation` (`engine.ts`, valida com `mutationSchema`; o formulário já faz `safeParse` antes) → `generateDue` → `validateData` → grava com revisão +1 → avisa outras abas por BroadcastChannel `manin-local-updates`. Erro em qualquer etapa aborta sem alterar o registro.
+
+## Backup e restauração
+Exportar: `LocalStore.backup()` → `createBackup` (v3). Importar arquivo ou Drive: `parseBackup` (reconhece v1/v2/v3, migra, valida tudo) → `backups.tsx` mostra origem/data/contagem e pede confirmação → `LocalStore.replace(backup, revisãoEsperada)` substitui em uma transação, recusando se a revisão mudou.
+
+## Google Drive
+`google-drive.ts` carrega GIS no navegador, pede token com `drive.appdata` (só em memória), confirma a conta por `about.get`, envia/baixa direto ao Google. Recibo confirmado é guardado com `recordDriveBackup` vinculado ao ID do conjunto.
+
+## Build e offline
+`pnpm build` = `next build` (export para `out/`) + `create-offline-manifest.mjs` (lista arquivos públicos versionados). `public/sw.js` pré-carrega essa lista; `pwa.tsx` registra o SW fora do desenvolvimento. Vercel serve `out/` com headers de `vercel.json`.
