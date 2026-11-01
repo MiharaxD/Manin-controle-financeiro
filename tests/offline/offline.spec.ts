@@ -3,12 +3,22 @@ import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import type { Backup } from "../../src/lib/backup";
 async function nav(page: Page, name: string) {
+  const mobile = page.viewportSize()!.width <= 760;
+  // On phones, Orçamentos and Relatórios live under "Mais".
+  if (mobile && ["Orçamentos", "Relatórios"].includes(name)) {
+    await page
+      .getByRole("navigation", { name: "Navegação no celular" })
+      .getByRole("button", { name: "Mais", exact: true })
+      .click();
+    await page
+      .getByRole("dialog", { name: "Mais" })
+      .getByRole("button", { name, exact: true })
+      .click();
+    return;
+  }
   await page
     .getByRole("navigation", {
-      name:
-        page.viewportSize()!.width <= 760
-          ? "Navegação no celular"
-          : "Navegação principal",
+      name: mobile ? "Navegação no celular" : "Navegação principal",
     })
     .getByRole("button", { name, exact: true })
     .click();
@@ -76,7 +86,7 @@ test("PWA cria, edita, consulta, exclui e restaura backup offline com servidor d
     await context.setOffline(true);
     await page.reload();
     await expect(
-      page.getByRole("heading", { name: "Seu mês, com clareza." }),
+      page.getByRole("heading", { level: 1, name: "Início" }),
     ).toBeVisible();
     await page
       .locator(page.viewportSize()!.width <= 760 ? ".fab" : ".desktop-add")

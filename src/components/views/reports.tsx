@@ -14,10 +14,6 @@ export function Reports({ s }: { s: Snapshot }) {
   const current = s.monthly.at(-1)!;
   return (
     <>
-      <div className="section-intro">
-        <p>Uma visão clara do seu consumo e do seu caixa.</p>
-        <span className="badge">{monthLabel(s.month)}</span>
-      </div>
       <div className="metric-grid">
         <div className="metric">
           <span>Resultado do consumo</span>

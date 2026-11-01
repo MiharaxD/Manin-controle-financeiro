@@ -1,5 +1,5 @@
 "use client";
-import type { CSSProperties } from "react";
+import { Fragment, type CSSProperties } from "react";
 import { ArrowDownLeft, Repeat2, Wallet, Ellipsis } from "lucide-react";
 import { formatDate, money } from "@/lib/finance";
 import type { Budget, Snapshot, Transaction } from "@/lib/types";
@@ -110,20 +110,38 @@ export function TransactionRows({
   edit,
   reuse,
   remove,
+  days,
 }: {
   rows: Transaction[];
   s: Snapshot;
   edit: (t: Transaction) => void;
   reuse: (t: Transaction) => void;
   remove: (t: Transaction) => void;
+  // Net per purchase date; when present, rows are grouped by day.
+  days?: Record<string, number>;
 }) {
   return (
     <div className="transaction-list">
-      {rows.map((t) => {
+      {rows.map((t, i) => {
         const c = s.categories.find((c) => c.id === t.category_id),
-          projected = t.status === "planned" || t.purchase_date > s.today;
+          projected = t.status === "planned" || t.purchase_date > s.today,
+          net = days?.[t.purchase_date] ?? 0;
         return (
-          <div className="transaction-row" key={t.id}>
+          <Fragment key={t.id}>
+            {days && t.purchase_date !== rows[i - 1]?.purchase_date && (
+              <div className="day-heading">
+                <span>
+                  {formatDate(t.purchase_date, {
+                    weekday: "short",
+                  })}
+                </span>
+                <span className={net > 0 ? "positive" : ""}>
+                  {net > 0 ? "+ " : net < 0 ? "− " : ""}
+                  {money(Math.abs(net))}
+                </span>
+              </div>
+            )}
+          <div className="transaction-row">
             <span
               className="category-icon"
               style={
@@ -150,8 +168,12 @@ export function TransactionRows({
               </strong>
               <span>
                 {c?.name ?? "Transferência antiga · entre suas contas"}
-                <span className="separator">·</span>
-                {formatDate(t.purchase_date)}
+                {!days && (
+                  <>
+                    <span className="separator">·</span>
+                    {formatDate(t.purchase_date)}
+                  </>
+                )}
                 {t.payment_method === "credit" && (
                   <>
                     <span className="separator">·</span>Crédito{" "}
@@ -186,6 +208,7 @@ export function TransactionRows({
               </div>
             </details>
           </div>
+          </Fragment>
         );
       })}
     </div>
@@ -201,29 +224,39 @@ export function Categories({ s }: { s: Snapshot }) {
         text="Suas categorias aparecem aqui quando você registrar despesas."
       />
     );
+  const items = sorted.map((item) => ({
+    ...item,
+    category: s.categories.find((c) => c.id === item.category_id),
+    percentage: expense ? Math.round((item.total * 100) / expense) : 0,
+  }));
   return (
     <div className="category-breakdown">
-      {sorted.map((item) => {
-        const c = s.categories.find((c) => c.id === item.category_id);
-        const percentage = expense
-          ? Math.round((item.total * 100) / expense)
-          : 0;
-        return (
-          <div key={item.category_id}>
-            <div className="between">
-              <span className="category-caption">
-                <span className="dot" style={{ background: c?.color }} />
-                {c?.name ?? "Outros"}
-              </span>
-              <strong>{money(item.total)}</strong>
-            </div>
-            <div className="category-track">
-              <span style={{ width: `${percentage}%`, background: c?.color }} />
-            </div>
-            <small className="muted">{percentage}% dos gastos do mês</small>
-          </div>
-        );
-      })}
+      <div className="category-stack" aria-hidden="true">
+        {items.map((item) => (
+          <span
+            key={item.category_id}
+            style={{
+              flexGrow: item.total,
+              background: item.category?.color,
+            }}
+          />
+        ))}
+      </div>
+      <ul>
+        {items.map((item) => (
+          <li key={item.category_id}>
+            <span className="category-caption">
+              <span
+                className="dot"
+                style={{ background: item.category?.color }}
+              />
+              {item.category?.name ?? "Outros"}
+            </span>
+            <strong>{money(item.total)}</strong>
+            <small className="muted">{item.percentage}%</small>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Plus, Ellipsis } from "lucide-react";
+import { Ellipsis } from "lucide-react";
 import {
   annualEquivalent,
   monthlyEquivalent,
@@ -47,16 +47,6 @@ export function Recurrences({
     mutate({ action: "recurrence", payload: { ...r, status } });
   return (
     <>
-      <div className="section-intro">
-        <p>Acompanhe o que se repete, sem perder de vista o total.</p>
-        <button
-          className="button primary"
-          onClick={() => open({ type: "recurrence" })}
-        >
-          <Plus size={18} />
-          Nova recorrente
-        </button>
-      </div>
       <div className="metric-grid">
         <div className="metric">
           <span>Mensal equivalente</span>
@@ -66,7 +56,7 @@ export function Recurrences({
         <div className="metric">
           <span>Anual equivalente</span>
           <strong>{money(annual)}</strong>
-          <small>Ao preço atual · sem somar ao realizado</small>
+          <small>Ao preço atual, sem somar ao realizado</small>
         </div>
         <div className="metric">
           <span>Serviços ativos</span>

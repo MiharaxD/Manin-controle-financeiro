@@ -29,6 +29,10 @@
 
 - **Identidade visual inspirada em Persona 5.** Preto `#0B0B0D`, papel `#F4F0E7`, vermelho `#FF1828`; Anton/Inter locais (OFL).
   - Exige: só decoração inclina/recorta/tem textura; valores, tabelas e campos horizontais; estados financeiros separados da cor da marca; mesma composição nos dois temas; respeitar redução de movimento.
+  - Hierarquia: sombra dura, recorte vermelho e etiqueta de papel só no herói da tela (`.month-card`); painéis secundários planos (borda fina + régua preta no título); métricas em faixa única.
+  - Cabeçalho em uma linha (título, mês, avisos, ações), sem sobretítulo nem breadcrumb. Um botão primário por tela: Recorrentes/Orçamentos usam o próprio, e "Lançamento" vira ícone secundário.
+  - Início separa Consumo (compras, crédito incluso) de Caixa (entrou − saiu pago = fluxo); nunca empilhar receitas, consumo e fluxo como se fossem uma conta.
+  - Celular: Início, Transações, + central, Recorrentes e "Mais" (Orçamentos, Relatórios, Preferências).
 
 - **Ferramentas fixadas.** Node 22+, versões exatas e lockfile; TypeScript 6 / ESLint 9 enquanto os plugins do Next.js exigirem.
   - Proíbe: atualizar ferramenta principal isoladamente.

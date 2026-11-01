@@ -1,13 +1,5 @@
 "use client";
-import {
-  ArrowRight,
-  ArrowUpRight,
-  ArrowDownLeft,
-  CreditCard,
-  Repeat2,
-  Target,
-  Wallet,
-} from "lucide-react";
+import { ArrowRight, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import {
   money,
   formatDate,
@@ -51,15 +43,17 @@ export function Dashboard({
   const active = s.recurrences
     .filter((r) => r.status === "active")
     .sort((a, b) => a.next_date.localeCompare(b.next_date));
+  const monthly = active.reduce(
+    (n, r) => n + monthlyEquivalent(r.amount_cents, r.interval_months),
+    0,
+  );
   const max = Math.max(...s.monthly.map((m) => m.expense), 1);
+  const monthName = monthLabel(s.month).split(" ")[0];
   return (
     <>
-      <div className="overview-grid">
-        <section className="month-card">
-          <div className="between">
-            <span className="eyebrow">GASTOS DO MÊS</span>
-            <span className="month-chip">{monthLabel(s.month, true)}</span>
-          </div>
+      <section className="month-card" aria-label={`Resumo de ${monthName}`}>
+        <div className="hero-consumption">
+          <h2 className="eyebrow">Consumo de {monthName}</h2>
           <div className="hero-amount">{money(current.expense)}</div>
           <div className="comparison">
             {comparison === null ? (
@@ -75,15 +69,15 @@ export function Dashboard({
                   {Math.abs(comparison)}%
                 </span>
                 <span>
-                  {comparison <= 0 ? "menos" : "mais"}{" "}
+                  {comparison <= 0 ? "a menos" : "a mais"}{" "}
                   {s.month === monthOf(s.today)
-                    ? "no mesmo período do mês anterior"
+                    ? "que no mesmo período do mês anterior"
                     : "que no mês anterior"}
                 </span>
               </>
             )}
           </div>
-          <div className="mini-bars" aria-label="Gastos dos últimos seis meses">
+          <div className="mini-bars" aria-label="Consumo dos últimos seis meses">
             {s.monthly.map((m) => (
               <div key={m.month}>
                 <div className="mini-bar-track">
@@ -101,73 +95,42 @@ export function Dashboard({
             ))}
           </div>
           <p className="hero-footnote">
-            Compras efetivas · pelo valor total na data da compra
+            Compras efetivas pelo valor total na data da compra, crédito
+            incluso.
           </p>
-        </section>
-        <section className="balance-panel">
-          <div className="summary-row">
-            <span className="summary-icon positive">
-              <ArrowDownLeft size={20} />
-            </span>
+        </div>
+        <div className="hero-cash">
+          <h2 className="eyebrow eyebrow-red">Caixa do mês</h2>
+          <dl className="cash-lines">
             <div>
-              <span>Receitas</span>
-              <strong>{money(current.income)}</strong>
+              <dt>
+                <span aria-hidden="true">+</span>Entrou
+              </dt>
+              <dd className="cash-in">{money(current.cash_in)}</dd>
             </div>
-          </div>
-          <div className="summary-row">
-            <span className="summary-icon expense-tone">
-              <ArrowUpRight size={20} />
-            </span>
             <div>
-              <span>Despesas de consumo</span>
-              <strong>{money(current.expense)}</strong>
+              <dt>
+                <span aria-hidden="true">−</span>Saiu (pago)
+              </dt>
+              <dd>{money(current.cash_out)}</dd>
             </div>
-          </div>
-          <div className="summary-row balance-row">
-            <span className="summary-icon">
-              <Wallet size={20} />
-            </span>
-            <div>
-              <span>Fluxo líquido do mês</span>
-              <strong>{money(current.cash_in - current.cash_out)}</strong>
+            <div className="cash-total">
+              <dt>
+                <span aria-hidden="true">=</span>Fluxo líquido
+              </dt>
+              <dd>{money(current.cash_in - current.cash_out)}</dd>
             </div>
-          </div>
-          <p className="hint">
-            Entradas menos saídas pagas. Crédito entra no caixa quando você
-            registra o pagamento.
+          </dl>
+          <p className="hero-footnote">
+            Crédito entra no caixa quando você registra o pagamento da fatura.
           </p>
-        </section>
-      </div>
-      <div className="metric-grid">
-        <button className="metric" onClick={() => onPage("recurrences")}>
-          <span>
-            <CreditCard size={18} />
-            Crédito do mês <ArrowRight size={16} />
-          </span>
-          <strong>{money(bills)}</strong>
-          <small>Ainda a pagar</small>
-        </button>
-        <button className="metric" onClick={() => onPage("recurrences")}>
-          <span>
-            <Repeat2 size={18} />
-            Parcelas futuras <ArrowRight size={16} />
-          </span>
-          <strong>{money(future)}</strong>
-          <small>Compromissos após este mês</small>
-        </button>
-        <button className="metric" onClick={() => onPage("transactions")}>
-          <span>
-            <Target size={18} />
-            Despesas previstas <ArrowRight size={16} />
-          </span>
-          <strong>{money(current.planned)}</strong>
-          <small>Estimativa · fora do realizado</small>
-        </button>
-      </div>
+        </div>
+      </section>
       <div className="content-grid">
         <div className="main-column">
           <Panel
             title="Últimas transações"
+            className="recent-panel"
             action={
               <button
                 className="text-button"
@@ -199,6 +162,7 @@ export function Dashboard({
           </Panel>
           <Panel
             title="Onde seu dinheiro foi"
+            className="categories-panel"
             action={<span className="muted small">Consumo realizado</span>}
           >
             <Categories s={s} />
@@ -206,17 +170,28 @@ export function Dashboard({
         </div>
         <div className="side-column">
           <Panel
-            title="Próximas cobranças"
+            title="Vem pela frente"
+            className="ahead-panel"
             action={
               <button
-                className="icon-button"
-                aria-label="Ver recorrências"
+                className="text-button"
                 onClick={() => onPage("recurrences")}
               >
-                <ArrowRight size={17} />
+                Recorrentes <ArrowRight size={15} />
               </button>
             }
           >
+            <div className="ahead-totals">
+              <div>
+                <span>Crédito do mês, a pagar</span>
+                <strong>{money(bills)}</strong>
+              </div>
+              <div>
+                <span>Parcelas futuras</span>
+                <strong>{money(future)}</strong>
+              </div>
+            </div>
+            <h3 className="list-label">Próximas cobranças</h3>
             {active.length ? (
               <div className="subscription-list">
                 {active.slice(0, 3).map((r) => (
@@ -231,33 +206,34 @@ export function Dashboard({
                 ))}
               </div>
             ) : (
-              <Empty
-                title="Nada agendado"
-                text="Cadastre suas assinaturas para acompanhar as próximas cobranças."
-              />
+              <p className="muted small">
+                Nada agendado. Cadastre assinaturas em Recorrentes.
+              </p>
             )}
             <div className="panel-footer">
-              <span>Mensal equivalente</span>
-              <strong>
-                {money(
-                  active.reduce(
-                    (n, r) =>
-                      n + monthlyEquivalent(r.amount_cents, r.interval_months),
-                    0,
-                  ),
+              <span>
+                {current.planned ? (
+                  <>
+                    Despesas previstas <strong>{money(current.planned)}</strong>
+                  </>
+                ) : (
+                  "Nenhuma despesa prevista"
                 )}
-              </strong>
+              </span>
+              <span>
+                Mensal <strong>{money(monthly)}</strong>
+              </span>
             </div>
           </Panel>
           <Panel
-            title="Seus orçamentos"
+            title="Orçamentos"
+            className="budgets-panel"
             action={
               <button
-                className="icon-button"
-                aria-label="Ver orçamentos"
+                className="text-button"
                 onClick={() => onPage("budgets")}
               >
-                <ArrowRight size={17} />
+                Ajustar <ArrowRight size={15} />
               </button>
             }
           >

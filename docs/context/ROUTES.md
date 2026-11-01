@@ -4,13 +4,13 @@ App de página única: `src/app/page.tsx` → `src/components/local-app.tsx` (ab
 
 ## Design / UI / tema
 - **Ir direto para:** `src/app/globals.css` (tokens em `:root` e `:root[data-theme="dark"]`), `src/components/views/*.tsx` da tela, `src/components/views/shared.tsx` (Panel, Empty, BudgetBar, TransactionRows), `src/components/icons.tsx`, `src/components/charts.tsx`, `src/components/ui/dialog.tsx` (Radix).
-- **Testes:** `pnpm test:visual` (exige `pnpm dev` ativo; capturas em `artifacts/redesign/`), `pnpm test:e2e`.
-- **Cuidados:** direção visual em DECISIONS.md (só decoração inclina/recorta; valores e campos ficam horizontais). Mudar nos dois temas e conferir 1440/390/320px e `prefers-reduced-motion`.
-- **Arquivo grande:** `globals.css` (~2.300 linhas). Busque pela classe com grep. Seções: decoração ~290, modais/campos ~1312, `@media` a partir de ~1838.
+- **Testes:** `pnpm test:visual` (exige `pnpm dev` ativo; capturas em `artifacts/redesign/`), `pnpm test:e2e`. Os testes navegam pelo título `h1` da tela e, no celular, abrem Orçamentos/Relatórios pelo "Mais".
+- **Cuidados:** direção visual e hierarquia em DECISIONS.md. Mudar nos dois temas e conferir 1440/390/320px e `prefers-reduced-motion`.
+- **Arquivo grande:** `globals.css` (~2.400 linhas). Busque pela classe com grep. Seções: shell/barra/herói/painéis ~280, listas e filtros ~765, modais/campos ~1416, `@media` a partir de ~1941.
 
 ## Telas e navegação
 - **Ir direto para:** `src/components/app.tsx`; telas em `views/dashboard.tsx` (Início), `transactions.tsx`, `recurrences.tsx` (Recorrentes + apelidos de cartão), `cards.tsx`, `invoice.tsx` (detalhe por cartão/mês), `reports.tsx`; `views/types.ts` (tipo `Page`). Primeiro acesso: `welcome.tsx`. `/login/` e `/demo/` em `src/app/`.
-- **Arquivo grande:** `app.tsx` (~1.150 linhas). Grep: `const navigation`, `page === "`, `const save`, `loadTransactions`, `loadInvoice`, `Preferências` (tipos de recorrentes e orçamentos ficam ali).
+- **Arquivo grande:** `app.tsx` (~1.230 linhas). Grep: `const navigation` (destinos; `mobilePrimary` define a barra do celular, o resto vai para "Mais"), `className="topbar"` (barra única: título, mês, avisos, ações), `pageAction` (botão principal por tela), `backupAge` (status de backup no menu), `page === "`, `const save`, `loadTransactions`, `loadInvoice`, `Preferências` (tipos de recorrentes ficam ali).
 - **Não precisa ler:** `src/app/error.tsx`, `loading.tsx`, `next-env.d.ts`.
 
 ## Formulários (lançamento, cartão, recorrente, tipo, conta, orçamento)

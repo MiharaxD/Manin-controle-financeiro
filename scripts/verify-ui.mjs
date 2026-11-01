@@ -30,18 +30,24 @@ async function fit(page, label) {
   checks.push(label);
 }
 async function navigate(page, view, mobile) {
+  if (mobile && view === "Relatórios") {
+    await page
+      .getByRole("navigation", { name: "Navegação no celular" })
+      .getByRole("button", { name: "Mais", exact: true })
+      .click();
+    await page
+      .getByRole("dialog", { name: "Mais" })
+      .getByRole("button", { name: view, exact: true })
+      .click();
+  } else
+    await page
+      .getByRole("navigation", {
+        name: mobile ? "Navegação no celular" : "Navegação principal",
+      })
+      .getByRole("button", { name: view, exact: true })
+      .click();
   await page
-    .getByRole("navigation", {
-      name: mobile ? "Navegação no celular" : "Navegação principal",
-    })
-    .getByRole("button", { name: view, exact: true })
-    .click();
-  await page
-    .getByRole("heading", {
-      level: 1,
-      name: view === "Início" ? "Seu mês, com clareza." : view,
-      exact: true,
-    })
+    .getByRole("heading", { level: 1, name: view, exact: true })
     .waitFor();
   if (view === "Transações")
     await page.getByLabel("Buscar lançamentos").waitFor();
@@ -100,7 +106,7 @@ try {
           );
         }
       }
-      // Budget view lives in preferences on mobile.
+      // Budgets are also reachable from preferences.
       await navigate(page, "Recorrentes", mobile);
       await page.locator(".credit-section").scrollIntoViewIfNeeded();
       await page.screenshot({
@@ -135,7 +141,7 @@ try {
         .getByRole("button", { name: /Abrir/ })
         .click();
       await page
-        .getByRole("heading", { name: "Seus orçamentos", exact: true })
+        .getByRole("heading", { name: "Orçamentos", level: 1, exact: true })
         .waitFor();
       await fit(page, width + "/" + theme + "/budgets");
       await page.screenshot({
@@ -204,7 +210,7 @@ try {
         .getByRole("button", { name: /Abrir/ })
         .click();
       await page
-        .getByRole("heading", { name: "Seus orçamentos", exact: true })
+        .getByRole("heading", { name: "Orçamentos", level: 1, exact: true })
         .waitFor();
       await fit(page, width + "/" + theme + "/text-200/budgets");
       await navigate(page, "Início", mobile);
@@ -220,8 +226,9 @@ try {
             nav &&
             fab &&
             footer.y + footer.height < nav.y &&
-            fab.y + fab.height < nav.y,
-          "Footer/FAB obscured by nav",
+            fab.y >= 0 &&
+            fab.y + fab.height <= nav.y + nav.height,
+          "Footer obscured by nav or add button outside it",
         );
         checks.push(width + "/" + theme + "/bottom-nav-clearance");
       }

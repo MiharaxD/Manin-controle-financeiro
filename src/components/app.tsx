@@ -21,6 +21,7 @@ import {
   Wallet,
   X,
   ChartNoAxesCombined,
+  LayoutGrid,
 } from "lucide-react";
 import {
   addMonths,
@@ -55,8 +56,25 @@ const navigation = [
   { id: "home", title: "Início", icon: House },
   { id: "transactions", title: "Transações", icon: Wallet },
   { id: "recurrences", title: "Recorrentes", icon: Repeat2 },
+  { id: "budgets", title: "Orçamentos", icon: Target },
   { id: "reports", title: "Relatórios", icon: ChartNoAxesCombined },
 ] as const;
+// The phone bar keeps three destinations; the rest live under "Mais".
+const mobilePrimary: Page[] = ["home", "transactions", "recurrences"];
+const backupKey = (mode: string) => `manin-last-backup-${mode}`;
+const STALE_BACKUP_DAYS = 14;
+function monthTitle(month: string) {
+  const [name, , year] = monthLabel(month).split(" ");
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${year}`;
+}
+function backupAge(iso: string | null) {
+  if (!iso) return { text: "nunca", stale: true };
+  const days = Math.floor((Date.now() - Date.parse(iso)) / 86400000);
+  return {
+    text: days <= 0 ? "hoje" : days === 1 ? "ontem" : `há ${days} dias`,
+    stale: days > STALE_BACKUP_DAYS,
+  };
+}
 export function FinanceApp({
   initial,
   repository,
@@ -110,9 +128,13 @@ export function FinanceApp({
     [failure, setFailure] = useState("");
   const [pageFilters, setPageFilters] = useState<Partial<Filters>>({});
   const [notice, setNotice] = useState(needNotice && !demo);
+  const [moreOpen, setMoreOpen] = useState(false),
+    [driveBackups, setDriveBackups] = useState<string[]>([]),
+    [exportedAt, setExportedAt] = useState<string | null>(null);
   const commit = useCallback(
     (record: LocalRecord, month = monthRef.current) => {
       dataRef.current = record.data;
+      setDriveBackups(record.driveReceipts.map((r) => r.confirmed_at));
       if (month === monthRef.current)
         setSnapshot(buildSnapshot(record.data, month, todaySP()));
     },
@@ -128,9 +150,20 @@ export function FinanceApp({
     [repository, commit],
   );
   useEffect(() => {
-    const frame = requestAnimationFrame(() =>
-      setTheme(document.documentElement.dataset.theme ?? "light"),
-    );
+    const frame = requestAnimationFrame(() => {
+      setTheme(document.documentElement.dataset.theme ?? "light");
+      try {
+        setExportedAt(localStorage.getItem(backupKey(repository.mode)));
+      } catch {
+        /* Storage can be blocked; the status then reads "nunca". */
+      }
+    });
+    void repository
+      .read()
+      .then((record) =>
+        setDriveBackups(record.driveReceipts.map((r) => r.confirmed_at)),
+      )
+      .catch(() => {});
     const refresh = () => {
       void reload().catch(() => {
         setFailure(
@@ -229,9 +262,19 @@ export function FinanceApp({
                 .includes(filters.search.toLocaleLowerCase("pt-BR"))),
         )
         .sort((a, b) => b.purchase_date.localeCompare(a.purchase_date));
+      const totals = { income: 0, expense: 0 },
+        days: Record<string, number> = {};
+      for (const t of rows) {
+        if (t.kind === "transfer") continue;
+        const signed = t.kind === "income" ? t.amount_cents : -t.amount_cents;
+        totals[t.kind] += t.amount_cents;
+        days[t.purchase_date] = (days[t.purchase_date] ?? 0) + signed;
+      }
       return {
         rows: rows.slice(page * 30, page * 30 + 30),
         count: rows.length,
+        totals,
+        days,
       };
     },
     [repository],
@@ -337,6 +380,15 @@ export function FinanceApp({
         "manin." + format,
         format === "csv" ? "text/csv;charset=utf-8" : "application/json",
       );
+      if (format === "json") {
+        const now = new Date().toISOString();
+        setExportedAt(now);
+        try {
+          localStorage.setItem(backupKey(repository.mode), now);
+        } catch {
+          /* The status keeps working for this session only. */
+        }
+      }
       setToast({
         text: "Arquivo preparado para download. Guarde-o em um lugar seguro.",
       });
@@ -361,11 +413,43 @@ export function FinanceApp({
         payment: "Registrar pagamento",
       }[editor.type]
     : "";
+  const title =
+    navigation.find((n) => n.id === page)?.title ?? navigation[0].title;
+  const pageAction =
+    page === "recurrences"
+      ? { label: "Nova recorrente", editor: { type: "recurrence" } as Editor }
+      : page === "budgets"
+        ? { label: "Novo orçamento", editor: { type: "budget" } as Editor }
+        : null;
+  const lastBackup =
+    [exportedAt, ...driveBackups]
+      .filter((v): v is string => !!v)
+      .sort()
+      .at(-1) ?? null;
+  const backup = backupAge(lastBackup);
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      await reload();
+      setFailure("");
+    } catch (e) {
+      setFailure((e as Error).message);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+  const resetDemo = () => {
+    void repository
+      .reset()
+      .then((record) => commit(record))
+      .catch((error) =>
+        setToast({ text: (error as Error).message, error: true }),
+      );
+  };
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <Logo />
-        <div className="workspace-label">SEU ESPAÇO FINANCEIRO</div>
         <nav aria-label="Navegação principal">
           {navigation.map((n) => (
             <button
@@ -376,39 +460,35 @@ export function FinanceApp({
             >
               <n.icon size={20} strokeWidth={1.7} />
               {n.title}
-              {page === n.id && <span className="nav-dot" aria-hidden="true" />}
             </button>
           ))}
-          <span className="nav-divider" />
-          <button
-            className={page === "budgets" ? "active" : ""}
-            aria-current={page === "budgets" ? "page" : undefined}
-            onClick={() => onPage("budgets")}
-          >
-            <Target size={20} />
-            Orçamentos
-          </button>
         </nav>
         <div className="sidebar-bottom">
-          <button onClick={() => setSettings(true)}>
-            <Settings2 size={18} />
-            Preferências
-          </button>
-          <div className="privacy-note">
-            <ShieldCheck size={17} />
-            <span>
-              Seu dinheiro.
-              <br />
-              Seu espaço.
-            </span>
-          </div>
-          <div className="profile">
-            <span className="avatar">M</span>
-            <div>
-              <strong>{demo ? "Modo demonstração" : "Conta local"}</strong>
-              <span>{demo ? "Dados fictícios" : "Neste navegador"}</span>
+          {demo ? (
+            <div className="sidebar-status">
+              <strong>
+                <span className="demo-dot" />
+                Modo demonstração
+              </strong>
+              <p>Dados fictícios, separados dos seus dados pessoais.</p>
             </div>
-          </div>
+          ) : (
+            <div className="sidebar-status">
+              <strong>
+                <ShieldCheck size={16} />
+                Dados neste navegador
+              </strong>
+              <p>
+                Último backup:{" "}
+                <span className={backup.stale ? "status-warning" : ""}>
+                  {backup.text}
+                </span>
+              </p>
+              <button onClick={() => setSettings(true)}>
+                {backup.stale ? "Fazer backup agora" : "Backups"}
+              </button>
+            </div>
+          )}
         </div>
       </aside>
       <div className="app-body">
@@ -416,25 +496,68 @@ export function FinanceApp({
           <div className="mobile-brand">
             <Logo compact />
           </div>
-          <div className="breadcrumb">
-            Meu espaço <ChevronRight size={14} />
-            <strong>
-              {page === "budgets"
-                ? "Orçamentos"
-                : navigation.find((n) => n.id === page)?.title}
-            </strong>
+          <h1>{title}</h1>
+          <div className="month-navigation">
+            <button
+              className="icon-button"
+              disabled={refreshing}
+              aria-label="Mês anterior"
+              onClick={() => {
+                void changeMonth(-1);
+              }}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <span>{monthTitle(s.month)}</span>
+            <button
+              className="icon-button"
+              disabled={refreshing}
+              aria-label="Próximo mês"
+              onClick={() => {
+                void changeMonth(1);
+              }}
+            >
+              <ChevronRight size={18} />
+            </button>
           </div>
+          {demo ? (
+            <div className="demo-banner">
+              <span className="demo-dot" />
+              <span>
+                Demonstração
+                <span className="demo-detail"> · dados fictícios</span>
+              </span>
+              <button className="text-button" onClick={resetDemo}>
+                Reiniciar
+              </button>
+            </div>
+          ) : (
+            backup.stale && (
+              <div className="demo-banner local-banner">
+                <ShieldCheck size={16} />
+                <span>
+                  Dados só neste navegador. Último backup: {backup.text}.
+                </span>
+                <button
+                  className="text-button"
+                  onClick={() => setSettings(true)}
+                >
+                  Fazer backup
+                </button>
+              </div>
+            )
+          )}
           <div className="topbar-actions">
-            <span className="connection">
-              <span className="dot" />
-              {demo
-                ? "Demonstração"
-                : refreshing
-                  ? "Atualizando"
-                  : failure
-                    ? "Revisar armazenamento"
-                    : "Salvo neste dispositivo"}
-            </span>
+            <button
+              className="icon-button refresh-button"
+              disabled={refreshing}
+              aria-label={refreshing ? "Atualizando" : "Atualizar dados"}
+              onClick={() => {
+                void refresh();
+              }}
+            >
+              <RefreshCw size={18} className={refreshing ? "spinning" : ""} />
+            </button>
             <button
               className="icon-button"
               onClick={toggleTheme}
@@ -451,113 +574,27 @@ export function FinanceApp({
             >
               <Settings2 size={19} />
             </button>
-            <span className="avatar">M</span>
           </div>
-        </header>
-        <main>
-          <div className="page-heading">
-            <div>
-              <span className="overline">
-                {page === "home" ? "UM PASSO DE CADA VEZ" : "MEU ESPAÇO"}
-              </span>
-              <h1>
-                {page === "home"
-                  ? "Seu mês, com clareza."
-                  : page === "budgets"
-                    ? "Seus orçamentos"
-                    : navigation.find((n) => n.id === page)?.title}
-              </h1>
-              <p>
-                {page === "home"
-                  ? "Um olhar tranquilo para o que entra, sai e vem pela frente."
-                  : ""}
-              </p>
-            </div>
+          <button
+            className={`button ${pageAction ? "secondary compact" : "primary"} desktop-add`}
+            aria-label="Adicionar lançamento"
+            title={pageAction ? "Adicionar lançamento" : undefined}
+            onClick={() => setEditor({ type: "transaction" })}
+          >
+            <Plus size={18} />
+            <span className="add-label">Lançamento</span>
+          </button>
+          {pageAction && (
             <button
-              className="button primary desktop-add"
-              onClick={() => setEditor({ type: "transaction" })}
+              className="button primary page-action"
+              onClick={() => setEditor(pageAction.editor)}
             >
               <Plus size={18} />
-              Adicionar lançamento
+              {pageAction.label}
             </button>
-          </div>
-          {demo && (
-            <div className="demo-banner">
-              <span className="demo-dot" />
-              <span>
-                Demonstração com dados fictícios. Alterações ficam no espaço de
-                demonstração deste navegador, separadas dos seus dados pessoais.
-              </span>
-              <button
-                className="text-button"
-                onClick={() => {
-                  void repository
-                    .reset()
-                    .then((record) => commit(record))
-                    .catch((error) =>
-                      setToast({ text: (error as Error).message, error: true }),
-                    );
-                }}
-              >
-                Reiniciar
-              </button>
-            </div>
           )}
-          {!demo && (
-            <div className="demo-banner local-banner">
-              <ShieldCheck size={17} />
-              <span>
-                Dados neste dispositivo e navegador. Limpar o navegador ou
-                trocar de dispositivo pode remover seu acesso. Faça backups.
-              </span>
-              <button className="text-button" onClick={() => setSettings(true)}>
-                Backups
-              </button>
-            </div>
-          )}
-          <div className="month-toolbar">
-            <div className="month-navigation">
-              <button
-                className="icon-button"
-                disabled={refreshing}
-                aria-label="Mês anterior"
-                onClick={() => {
-                  void changeMonth(-1);
-                }}
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <span>{monthLabel(s.month)}</span>
-              <button
-                className="icon-button"
-                disabled={refreshing}
-                aria-label="Próximo mês"
-                onClick={() => {
-                  void changeMonth(1);
-                }}
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
-            <button
-              className="text-button refresh-button"
-              disabled={refreshing}
-              onClick={async () => {
-                setRefreshing(true);
-                try {
-                  await reload();
-                  setFailure("");
-                } catch (e) {
-                  setFailure((e as Error).message);
-                } finally {
-                  setRefreshing(false);
-                }
-              }}
-            >
-              <RefreshCw size={14} className={refreshing ? "spinning" : ""} />
-              {refreshing ? "Atualizando…" : "Atualizar"}
-            </button>
-          </div>
+        </header>
+        <main>
           {failure && (
             <p role="alert" className="form-error">
               {failure}
@@ -609,17 +646,10 @@ export function FinanceApp({
           {page === "reports" && <Reports s={s} />}
           {page === "budgets" && (
             <>
-              <div className="section-intro">
-                <p>Limites para o que já aconteceu. Previsões ficam de fora.</p>
-                <button
-                  className="button primary"
-                  onClick={() => setEditor({ type: "budget" })}
-                >
-                  <Plus size={18} />
-                  Novo orçamento
-                </button>
-              </div>
-              <Panel title={monthLabel(s.month)}>
+              <p className="page-note">
+                Limites para o que já aconteceu. Previsões ficam de fora.
+              </p>
+              <Panel title={monthTitle(s.month)}>
                 {s.budgets.length ? (
                   s.budgets.map((b) => (
                     <div className="budget-edit-row" key={b.id}>
@@ -665,25 +695,75 @@ export function FinanceApp({
         className="mobile-nav"
         aria-label="Navegação no celular"
       >
-        {navigation.map((n) => (
-          <button
-            key={n.id}
-            className={page === n.id ? "active" : ""}
-            aria-current={page === n.id ? "page" : undefined}
-            onClick={() => onPage(n.id)}
-          >
-            <n.icon size={21} strokeWidth={1.7} />
-            <span>{n.title}</span>
-          </button>
-        ))}
+        {navigation
+          .filter((n) => mobilePrimary.includes(n.id))
+          .flatMap((n, i) => {
+            const item = (
+              <button
+                key={n.id}
+                className={page === n.id ? "active" : ""}
+                aria-current={page === n.id ? "page" : undefined}
+                onClick={() => onPage(n.id)}
+              >
+                <n.icon size={21} strokeWidth={1.7} />
+                <span>{n.title}</span>
+              </button>
+            );
+            return i === 1
+              ? [
+                  item,
+                  <button
+                    key="add"
+                    className="fab"
+                    aria-label="Adicionar lançamento"
+                    onClick={() => setEditor({ type: "transaction" })}
+                  >
+                    <Plus size={26} />
+                  </button>,
+                ]
+              : [item];
+          })}
+        <button
+          className={mobilePrimary.includes(page) ? "" : "active"}
+          aria-current={mobilePrimary.includes(page) ? undefined : "page"}
+          aria-haspopup="dialog"
+          onClick={() => setMoreOpen(true)}
+        >
+          <LayoutGrid size={21} strokeWidth={1.7} />
+          <span>Mais</span>
+        </button>
       </nav>
-      <button
-        className="fab"
-        aria-label="Adicionar lançamento"
-        onClick={() => setEditor({ type: "transaction" })}
-      >
-        <Plus size={26} />
-      </button>
+      {moreOpen && (
+        <Dialog open onClose={() => setMoreOpen(false)} title="Mais">
+          <div className="more-menu">
+            {navigation
+              .filter((n) => !mobilePrimary.includes(n.id))
+              .map((n) => (
+                <button
+                  key={n.id}
+                  className={page === n.id ? "active" : ""}
+                  aria-current={page === n.id ? "page" : undefined}
+                  onClick={() => {
+                    setMoreOpen(false);
+                    onPage(n.id);
+                  }}
+                >
+                  <n.icon size={20} strokeWidth={1.7} />
+                  {n.title}
+                </button>
+              ))}
+            <button
+              onClick={() => {
+                setMoreOpen(false);
+                setSettings(true);
+              }}
+            >
+              <Settings2 size={20} strokeWidth={1.7} />
+              Preferências e backups
+            </button>
+          </div>
+        </Dialog>
+      )}
       {notice && (
         <Dialog
           open
@@ -859,7 +939,16 @@ export function FinanceApp({
       {settings && !editor && (
         <Dialog
           open
-          onClose={() => setSettings(false)}
+          onClose={() => {
+            setSettings(false);
+            // A Drive upload inside the dialog records its receipt directly.
+            void repository
+              .read()
+              .then((record) =>
+                setDriveBackups(record.driveReceipts.map((r) => r.confirmed_at)),
+              )
+              .catch(() => {});
+          }}
           title="Seu espaço, do seu jeito"
         >
           <div className="settings-content">
