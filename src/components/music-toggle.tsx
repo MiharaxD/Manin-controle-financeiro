@@ -3,6 +3,8 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 
 const KEY = "manin-music";
+const VOLUME_KEY = "manin-music-volume";
+const DEFAULT_VOLUME = 0.3;
 const listeners = new Set<() => void>();
 
 function subscribe(fn: () => void) {
@@ -18,14 +20,38 @@ function isOn() {
   }
 }
 
+function getVolume() {
+  try {
+    const v = Number(localStorage.getItem(VOLUME_KEY) ?? DEFAULT_VOLUME);
+    return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : DEFAULT_VOLUME;
+  } catch {
+    return DEFAULT_VOLUME;
+  }
+}
+
+function save(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {}
+  listeners.forEach((fn) => fn());
+}
+
 export function MusicToggle() {
   const audio = useRef<HTMLAudioElement>(null);
   const on = useSyncExternalStore(subscribe, isOn, () => true);
+  const volume = useSyncExternalStore(
+    subscribe,
+    getVolume,
+    () => DEFAULT_VOLUME,
+  );
+
+  useEffect(() => {
+    if (audio.current) audio.current.volume = volume;
+  }, [volume]);
 
   useEffect(() => {
     const el = audio.current;
     if (!el) return;
-    el.volume = 0.3;
     if (!on) {
       el.pause();
       return;
@@ -46,14 +72,17 @@ export function MusicToggle() {
   }, [on]);
 
   function toggle() {
-    try {
-      localStorage.setItem(KEY, on ? "off" : "on");
-    } catch {}
-    listeners.forEach((fn) => fn());
+    save(KEY, on ? "off" : "on");
+  }
+
+  function changeVolume(value: number) {
+    save(VOLUME_KEY, String(value));
+    if (!on && value > 0) save(KEY, "on");
+    if (on && value === 0) save(KEY, "off");
   }
 
   return (
-    <>
+    <div className="music-control">
       <audio
         ref={audio}
         src="/audio/beneath-the-mask.mp3"
@@ -68,6 +97,17 @@ export function MusicToggle() {
       >
         {on ? <Volume2 size={19} /> : <VolumeX size={19} />}
       </button>
-    </>
+      <div className="music-volume">
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={on ? volume : 0}
+          onChange={(e) => changeVolume(Number(e.target.value))}
+          aria-label="Volume da música"
+        />
+      </div>
+    </div>
   );
 }
