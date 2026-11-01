@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { Ellipsis } from "lucide-react";
 import {
   annualEquivalent,
   monthlyEquivalent,
@@ -9,7 +8,7 @@ import {
 } from "@/lib/finance";
 import type { Mutation, Recurrence, Snapshot } from "@/lib/types";
 import type { Editor } from "../forms";
-import { Panel, Empty } from "./shared";
+import { Panel, Empty, RowMenu } from "./shared";
 export function Recurrences({
   s,
   open,
@@ -133,56 +132,51 @@ export function Recurrences({
                   </span>
                 </button>
                 <strong>{money(r.amount_cents)}</strong>
-                <details className="row-menu">
-                  <summary aria-label={`Ações de ${r.name}`}>
-                    <Ellipsis size={20} />
-                  </summary>
-                  <div>
+                <RowMenu label={`Ações de ${r.name}`} iconSize={20}>
+                  <button
+                    onClick={() =>
+                      open({ type: "recurrence", value: { ...r } })
+                    }
+                  >
+                    Editar preço e dados
+                  </button>
+                  <button onClick={() => history(r.id)}>Histórico</button>
+                  {r.status === "active" ? (
                     <button
-                      onClick={() =>
-                        open({ type: "recurrence", value: { ...r } })
-                      }
+                      onClick={() => {
+                        void change(r, "paused");
+                      }}
                     >
-                      Editar preço e dados
+                      Pausar
                     </button>
-                    <button onClick={() => history(r.id)}>Histórico</button>
-                    {r.status === "active" ? (
-                      <button
-                        onClick={() => {
-                          void change(r, "paused");
-                        }}
-                      >
-                        Pausar
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          void change(r, "active");
-                        }}
-                      >
-                        Reativar
-                      </button>
-                    )}
-                    {r.status !== "cancelled" && (
-                      <button
-                        className="danger-text"
-                        onClick={() => {
-                          void change(r, "cancelled");
-                        }}
-                      >
-                        Cancelar
-                      </button>
-                    )}
+                  ) : (
                     <button
-                      onClick={() =>
-                        open({ type: "transaction", recurrence: r })
-                      }
-                      disabled={r.status !== "active"}
+                      onClick={() => {
+                        void change(r, "active");
+                      }}
                     >
-                      Registrar próxima cobrança
+                      Reativar
                     </button>
-                  </div>
-                </details>
+                  )}
+                  {r.status !== "cancelled" && (
+                    <button
+                      className="danger-text"
+                      onClick={() => {
+                        void change(r, "cancelled");
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                  <button
+                    onClick={() =>
+                      open({ type: "transaction", recurrence: r })
+                    }
+                    disabled={r.status !== "active"}
+                  >
+                    Registrar próxima cobrança
+                  </button>
+                </RowMenu>
               </div>
             ))}
           </div>

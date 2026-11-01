@@ -1,9 +1,71 @@
 "use client";
-import { Fragment, useId, useState, type CSSProperties } from "react";
+import {
+  Fragment,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { ArrowDownLeft, Repeat2, Wallet, Ellipsis } from "lucide-react";
 import { formatDate, money } from "@/lib/finance";
 import type { Budget, Snapshot, Transaction } from "@/lib/types";
 import { CategoryIcon } from "../icons";
+// <details> only closes from its summary; an open menu would cover the next row.
+export function RowMenu({
+  label,
+  iconSize = 19,
+  children,
+}: {
+  label: string;
+  iconSize?: number;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const menu = ref.current;
+    if (!open || !menu) return;
+    const outside = (event: PointerEvent) => {
+      if (!menu.contains(event.target as Node)) menu.open = false;
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      menu.open = false;
+      menu.querySelector("summary")?.focus();
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+  return (
+    <details
+      ref={ref}
+      className="row-menu"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+      onBlur={(event) => {
+        const next = event.relatedTarget;
+        if (next && !event.currentTarget.contains(next))
+          event.currentTarget.open = false;
+      }}
+    >
+      <summary aria-label={label}>
+        <Ellipsis size={iconSize} />
+      </summary>
+      <div
+        onClick={(event) => {
+          if ((event.target as Element).closest("button") && ref.current)
+            ref.current.open = false;
+        }}
+      >
+        {children}
+      </div>
+    </details>
+  );
+}
 export function Panel({
   title,
   action,
@@ -251,24 +313,19 @@ export function TransactionRows({
               {t.kind === "income" ? "+ " : t.kind === "expense" ? "− " : ""}
               {money(t.amount_cents)}
             </strong>
-            <details className="row-menu">
-              <summary
-                aria-label={`Ações: ${t.merchant || t.description || "lançamento"}`}
-              >
-                <Ellipsis size={19} />
-              </summary>
-              <div>
-                {t.kind !== "transfer" && (
-                  <button onClick={() => edit(t)}>Editar</button>
-                )}
-                {t.kind !== "transfer" && (
-                  <button onClick={() => reuse(t)}>Reutilizar</button>
-                )}
-                <button className="danger-text" onClick={() => remove(t)}>
-                  Excluir
-                </button>
-              </div>
-            </details>
+            <RowMenu
+              label={`Ações: ${t.merchant || t.description || "lançamento"}`}
+            >
+              {t.kind !== "transfer" && (
+                <button onClick={() => edit(t)}>Editar</button>
+              )}
+              {t.kind !== "transfer" && (
+                <button onClick={() => reuse(t)}>Reutilizar</button>
+              )}
+              <button className="danger-text" onClick={() => remove(t)}>
+                Excluir
+              </button>
+            </RowMenu>
           </div>
           </Fragment>
         );
