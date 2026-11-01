@@ -76,14 +76,20 @@ export function BudgetBar({
         </span>
       </div>
       <div
-        className={`progress ${percentage >= 80 ? "warning" : ""}`}
+        className={`progress ${over ? "over" : percentage >= 80 ? "warning" : ""}`}
         role="progressbar"
         aria-label={`Orçamento ${category?.name ?? "geral"}`}
         aria-valuenow={Math.min(percentage, 100)}
         aria-valuemin={0}
         aria-valuemax={100}
       >
-        <span style={{ width: `${Math.min(percentage, 100)}%` }} />
+        {Array.from({ length: 10 }, (_, i) => (
+          <i
+            key={i}
+            className={i < Math.round(percentage / 10) ? "filled" : ""}
+            style={{ "--i": i } as CSSProperties}
+          />
+        ))}
       </div>
       <div className="between budget-values">
         <span>
@@ -130,10 +136,18 @@ export function TransactionRows({
           <Fragment key={t.id}>
             {days && t.purchase_date !== rows[i - 1]?.purchase_date && (
               <div className="day-heading">
-                <span>
-                  {formatDate(t.purchase_date, {
-                    weekday: "short",
-                  })}
+                <span className="day-stamp">
+                  <span className="sr-only">
+                    {formatDate(t.purchase_date, { weekday: "short" })}
+                  </span>
+                  <b aria-hidden="true">{t.purchase_date.slice(8)}</b>
+                  <span aria-hidden="true">
+                    {formatDate(t.purchase_date, {
+                      weekday: "short",
+                      day: undefined,
+                      month: undefined,
+                    }).replace(".", "")}
+                  </span>
                 </span>
                 <span className={net > 0 ? "positive" : ""}>
                   {net > 0 ? "+ " : net < 0 ? "− " : ""}
@@ -141,7 +155,10 @@ export function TransactionRows({
                 </span>
               </div>
             )}
-          <div className="transaction-row">
+          <div
+            className="transaction-row"
+            style={{ "--i": Math.min(i, 12) } as CSSProperties}
+          >
             <span
               className="category-icon"
               style={

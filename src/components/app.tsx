@@ -42,7 +42,7 @@ import type {
   Transaction,
 } from "@/lib/types";
 import { Dialog } from "./ui/dialog";
-import { CategoryIcon, Logo } from "./icons";
+import { Burst, CategoryIcon, Logo, Ransom } from "./icons";
 import { EntityForm, TransactionForm, type Editor } from "./forms";
 import { Dashboard } from "./views/dashboard";
 import { Transactions } from "./views/transactions";
@@ -448,6 +448,8 @@ export function FinanceApp({
   };
   return (
     <div className="app-shell">
+      <div className="shell-sliver" aria-hidden="true" />
+      <div className="shell-wedge" aria-hidden="true" />
       <aside className="sidebar">
         <Logo />
         <nav aria-label="Navegação principal">
@@ -458,8 +460,11 @@ export function FinanceApp({
               aria-current={page === n.id ? "page" : undefined}
               onClick={() => onPage(n.id)}
             >
-              <n.icon size={20} strokeWidth={1.7} />
-              {n.title}
+              {page === n.id && (
+                <span className="nav-cursor" aria-hidden="true" />
+              )}
+              <n.icon size={20} strokeWidth={2.2} />
+              <span className="nav-label">{n.title}</span>
             </button>
           ))}
         </nav>
@@ -492,11 +497,14 @@ export function FinanceApp({
         </div>
       </aside>
       <div className="app-body">
+        <div key={page} className="wipe" aria-hidden="true" />
         <header className="topbar">
           <div className="mobile-brand">
             <Logo compact />
           </div>
-          <h1>{title}</h1>
+          <h1 key={page} className="page-title">
+            <Ransom text={title} seed={title.length} />
+          </h1>
           <div className="month-navigation">
             <button
               className="icon-button"
@@ -506,9 +514,13 @@ export function FinanceApp({
                 void changeMonth(-1);
               }}
             >
-              <ChevronLeft size={18} />
+              <ChevronLeft size={20} strokeWidth={3} />
             </button>
-            <span>{monthTitle(s.month)}</span>
+            <span key={s.month} className="month-stamp">
+              <span className="sr-only">{monthTitle(s.month)}</span>
+              <b aria-hidden="true">{monthTitle(s.month).slice(0, 3)}</b>
+              <small aria-hidden="true">{s.month.slice(0, 4)}</small>
+            </span>
             <button
               className="icon-button"
               disabled={refreshing}
@@ -517,7 +529,7 @@ export function FinanceApp({
                 void changeMonth(1);
               }}
             >
-              <ChevronRight size={18} />
+              <ChevronRight size={20} strokeWidth={3} />
             </button>
           </div>
           {demo ? (
@@ -581,7 +593,7 @@ export function FinanceApp({
             title={pageAction ? "Adicionar lançamento" : undefined}
             onClick={() => setEditor({ type: "transaction" })}
           >
-            <Plus size={18} />
+            <Burst />
             <span className="add-label">Lançamento</span>
           </button>
           {pageAction && (
@@ -600,6 +612,7 @@ export function FinanceApp({
               {failure}
             </p>
           )}
+          <div key={page} className="stage">
           {page === "home" && (
             <Dashboard
               s={s}
@@ -683,6 +696,7 @@ export function FinanceApp({
               </Panel>
             </>
           )}
+          </div>
           <footer className="app-footer">
             <Logo compact />
             <span>Um pouco mais de clareza, todos os dias.</span>
@@ -718,7 +732,7 @@ export function FinanceApp({
                     aria-label="Adicionar lançamento"
                     onClick={() => setEditor({ type: "transaction" })}
                   >
-                    <Plus size={26} />
+                    <Burst />
                   </button>,
                 ]
               : [item];

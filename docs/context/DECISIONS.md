@@ -27,10 +27,10 @@
 - **Demonstração isolada.** Conjunto IndexedDB `demo` separado, só em desenvolvimento.
   - Proíbe: criar demo em produção; backup com origem demo substituir dados pessoais.
 
-- **Identidade visual inspirada em Persona 5.** Preto `#0B0B0D`, papel `#F4F0E7`, vermelho `#FF1828`; Anton/Inter locais (OFL).
-  - Exige: só decoração inclina/recorta/tem textura; valores, tabelas e campos horizontais; estados financeiros separados da cor da marca; mesma composição nos dois temas; respeitar redução de movimento.
-  - Hierarquia: sombra dura, recorte vermelho e etiqueta de papel só no herói da tela (`.month-card`); painéis secundários planos (borda fina + régua preta no título); métricas em faixa única.
-  - Cabeçalho em uma linha (título, mês, avisos, ações), sem sobretítulo nem breadcrumb. Um botão primário por tela: Recorrentes/Orçamentos usam o próprio, e "Lançamento" vira ícone secundário.
+- **Identidade "Máximo P5" (menu de pausa de Persona 5, pedido do usuário).** Campo vermelho `#E60012` com retícula, preto `#0D0D0D`, branco, ciano `#22E1FF` como cursor/seleção; escuro troca campo por preto e placas pretas por vermelho. Anton (display), Archivo variável (texto/números), Abril Fatface (só letras de recorte); todas locais (OFL).
+  - Exige: títulos de tela e logo em letras de recorte (`Ransom`) com texto acessível oculto; cunha preta + fresta branca fixas à esquerda; painéis brancos sobre placa girada, título em tarja; linhas como faixas do menu (leve rotação, ciano no hover/foco); campos e valores sem inclinação; estados financeiros separados da cor da marca.
+  - Movimento: varredura diagonal na troca de tela, entrada carimbada com stagger (~0,3–0,45 s), seletor do menu salta para o item ativo; tudo desligado por `prefers-reduced-motion`. Animações de entrada sem atraso parado no primeiro quadro em elementos clicáveis (o Playwright os considera estáveis antes da hora).
+  - Cabeçalho: ferramentas no topo, título em recorte, carimbo do mês e ação principal com estouro. Um botão primário por tela: Recorrentes/Orçamentos usam o próprio, e "Lançamento" vira só o estouro.
   - Início separa Consumo (compras, crédito incluso) de Caixa (entrou − saiu pago = fluxo); nunca empilhar receitas, consumo e fluxo como se fossem uma conta.
   - Celular: Início, Transações, + central, Recorrentes e "Mais" (Orçamentos, Relatórios, Preferências).
 

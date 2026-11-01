@@ -3,10 +3,10 @@
 App de página única: `src/app/page.tsx` → `src/components/local-app.tsx` (abre o IndexedDB) → `src/components/app.tsx` (`FinanceApp`: navegação, estado, telas). Domínio puro em `src/lib/`. Sem backend: `output: export` gera `out/`.
 
 ## Design / UI / tema
-- **Ir direto para:** `src/app/globals.css` (tokens em `:root` e `:root[data-theme="dark"]`), `src/components/views/*.tsx` da tela, `src/components/views/shared.tsx` (Panel, Empty, BudgetBar, TransactionRows), `src/components/icons.tsx`, `src/components/charts.tsx`, `src/components/ui/dialog.tsx` (Radix).
-- **Testes:** `pnpm test:visual` (exige `pnpm dev` ativo; capturas em `artifacts/redesign/`), `pnpm test:e2e`. Os testes navegam pelo título `h1` da tela e, no celular, abrem Orçamentos/Relatórios pelo "Mais".
-- **Cuidados:** direção visual e hierarquia em DECISIONS.md. Mudar nos dois temas e conferir 1440/390/320px e `prefers-reduced-motion`.
-- **Arquivo grande:** `globals.css` (~2.400 linhas). Busque pela classe com grep. Seções: shell/barra/herói/painéis ~280, listas e filtros ~765, modais/campos ~1416, `@media` a partir de ~1941.
+- **Ir direto para:** `src/app/globals.css` (tokens em `:root` e `:root[data-theme="dark"]`), `src/components/views/*.tsx` da tela, `src/components/views/shared.tsx` (Panel, Empty, BudgetBar em 10 segmentos, TransactionRows com carimbo do dia), `src/components/icons.tsx` (`Ransom`, `Burst`, `Logo`), `src/components/charts.tsx`, `src/components/ui/dialog.tsx` (Radix). Fontes em `public/fonts/`.
+- **Testes:** `pnpm test:visual` (exige `pnpm dev` ativo; capturas em `artifacts/redesign/`), `pnpm test:e2e`. Os testes navegam pelo título `h1` da tela (nome acessível vem do `sr-only` do `Ransom`) e, no celular, abrem Orçamentos/Relatórios pelo "Mais". Classes usadas como seletor: `.topbar`, `.desktop-add`, `.fab`, `.hero-amount`, `.transaction-row`, `.row-menu`, `.recurrence-row`, `.card-panel`, `.demo-banner`, `.segmented`.
+- **Cuidados:** direção visual e movimento em DECISIONS.md. Mudar nos dois temas e conferir 1440/390/320px e `prefers-reduced-motion`. Placas com placa girada atrás usam `::before` (placa) + `::after` (fundo) para não inverter a ordem quando uma animação cria contexto de empilhamento. Troca de tela remonta `.stage` e `.wipe` por `key={page}` em `app.tsx`.
+- **Arquivo grande:** `globals.css` (~3.600 linhas). Busque pela classe com grep ou pelos comentários de seção (`Shell`, `Main area`, `Panels`, `Rows`, `Transactions`, `Dialogs`, `Forms`, `Motion`); `@media` no fim.
 
 ## Telas e navegação
 - **Ir direto para:** `src/components/app.tsx`; telas em `views/dashboard.tsx` (Início), `transactions.tsx`, `recurrences.tsx` (Recorrentes + apelidos de cartão), `cards.tsx`, `invoice.tsx` (detalhe por cartão/mês), `reports.tsx`; `views/types.ts` (tipo `Page`). Primeiro acesso: `welcome.tsx`. `/login/` e `/demo/` em `src/app/`.
