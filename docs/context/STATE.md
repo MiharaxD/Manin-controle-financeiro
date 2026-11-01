@@ -5,16 +5,14 @@
 - Espaço pessoal começa vazio (só categorias, tipos de recorrentes e duas contas editáveis). Demonstração isolada em `/demo/` apenas em desenvolvimento.
 - Cartões só com apelido; crédito segue o mês da compra com parcelas consecutivas. Recorrentes e apelidos na tela Recorrentes; tipos personalizados nas Preferências. Lançamentos novos só despesa/receita; transferências antigas ficam como histórico.
 - Backup JSON v3 (lê v1/v2) com restauração atômica e confirmada. Google Drive manual (`drive.appdata`), sem sincronização. O menu lateral mostra a data do último backup (export JSON guardado em `localStorage` `manin-last-backup-<modo>` + recibos do Drive) e avisa após 14 dias.
-- Interface no estilo menu de pausa de Persona 5 (claro e escuro) com animações de entrada, troca de tela e seleção: herói Consumo × Caixa, filtros de Transações recolhidos com chips e lista agrupada por dia, "Mais" no celular. Ainda não está publicada na Vercel.
-- `main` está em dia com `origin/main` (GitHub `MiharaxD/Manin-controle-financeiro`), incluindo a simplificação de cartões/recorrentes e backup v3.
-- Produção: https://manin-controle-financeiro.vercel.app/ com `NEXT_PUBLIC_GOOGLE_CLIENT_ID` em Production. Se a versão publicada já contém a simplificação de cartões/backup v3: (não verificado).
+- Interface no estilo menu de pausa de Persona 5 (claro e escuro) com animações de entrada, troca de tela e seleção: herói Consumo × Caixa, filtros de Transações recolhidos com chips e lista agrupada por dia, "Mais" no celular.
+- Produção: https://manin.vercel.app/ (projeto Vercel `manin-controle-financeiro`, time `mihara1`), com `NEXT_PUBLIC_GOOGLE_CLIENT_ID` em Production. Push no `main` do GitHub `MiharaxD/Manin-controle-financeiro` publica sozinho; as URLs `*-mihara1.vercel.app` exigem login da Vercel.
 
 ## Pendências (ordem de prioridade)
-1. Confirmar que o deploy da Vercel corresponde ao `main` atual.
-2. Validar com conta Google real: autorização, envio e restauração pelo Drive (depende da pessoa; nunca simular).
-3. Validar instalação, armazenamento, teclado e offline no Safari de um iPhone físico.
-4. Se ainda houver dados no Supabase antigo, exportar (`docs/migration-export.sql`) e conferir a restauração local antes de desligá-lo.
-5. Depois: atualizar TypeScript/ESLint juntos quando os plugins do Next.js suportarem.
+1. Validar com conta Google real: autorização, envio e restauração pelo Drive (depende da pessoa; nunca simular).
+2. Validar instalação, armazenamento, teclado e offline no Safari de um iPhone físico.
+3. Se ainda houver dados no Supabase antigo, exportar (`docs/migration-export.sql`) e conferir a restauração local antes de desligá-lo.
+4. Depois: atualizar TypeScript/ESLint juntos quando os plugins do Next.js suportarem.
 
 ## Limitações conhecidas
 - Next.js 16.4.0 tem vulnerabilidade conhecida; em `next dev` o selo de segurança do Next fica sobre a barra inferior e quebra os e2e/`test:visual` no perfil iPhone (desktop e offline passam). Atualizar exige pedido explícito e manter TypeScript/ESLint juntos.
