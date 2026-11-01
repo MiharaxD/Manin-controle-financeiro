@@ -1,5 +1,10 @@
 "use client";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useRef,
+  useSyncExternalStore,
+  type CSSProperties,
+} from "react";
 import { Volume2, VolumeX } from "lucide-react";
 
 const KEY = "manin-music";
@@ -81,6 +86,8 @@ export function MusicToggle() {
     if (on && value === 0) save(KEY, "off");
   }
 
+  const level = on ? volume : 0;
+
   return (
     <div className="music-control">
       <audio
@@ -98,15 +105,21 @@ export function MusicToggle() {
         {on ? <Volume2 size={19} /> : <VolumeX size={19} />}
       </button>
       <div className="music-volume">
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          value={on ? volume : 0}
-          onChange={(e) => changeVolume(Number(e.target.value))}
-          aria-label="Volume da música"
-        />
+        <div
+          className="music-volume-panel"
+          style={{ "--vol": level } as CSSProperties}
+        >
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={level}
+            onChange={(e) => changeVolume(Number(e.target.value))}
+            aria-label="Volume da música"
+          />
+          <output aria-hidden="true">{Math.round(level * 100)}</output>
+        </div>
       </div>
     </div>
   );

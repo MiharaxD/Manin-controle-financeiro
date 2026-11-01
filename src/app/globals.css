@@ -764,36 +764,127 @@ small,
   top: 100%;
   left: 50%;
   z-index: 20;
-  display: flex;
-  align-items: center;
-  width: 150px;
-  padding: 10px 14px;
-  background: var(--btn);
+  padding-top: 8px;
   opacity: 0;
   visibility: hidden;
-  transform: translate(-50%, -4px);
+  transform: translate(-50%, -6px) rotate(2deg);
   transition:
     opacity var(--motion),
     transform var(--motion) var(--ease-snap),
     visibility var(--motion);
 }
-.music-volume::before {
-  content: "";
-  position: absolute;
-  inset: -8px 0 100%;
-}
 .music-control:hover .music-volume,
 .music-control:focus-within .music-volume {
   opacity: 1;
   visibility: visible;
-  transform: translate(-50%, 0);
+  transform: translate(-50%, 0) rotate(-3deg);
+}
+.music-volume-panel {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 210px;
+  padding: 12px 22px 12px 20px;
+  color: var(--btn-text);
+}
+.music-volume-panel::before,
+.music-volume-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  clip-path: polygon(7% 0, 100% 0, 93% 100%, 0 100%);
+}
+.music-volume-panel::before {
+  background: var(--white);
+  transform: translate(5px, 5px);
+}
+:root[data-theme="dark"] .music-volume-panel::before {
+  background: var(--red);
+}
+.music-volume-panel::after {
+  background: var(--btn);
 }
 .music-volume input {
-  width: 100%;
+  --fill: calc(6px + (100% - 12px) * var(--vol, 0));
+  flex: 1;
+  min-width: 0;
   height: 24px;
   margin: 0;
-  accent-color: var(--cyan);
+  appearance: none;
+  background:
+    linear-gradient(
+      to bottom right,
+      var(--btn) calc(50% - 0.5px),
+      transparent calc(50% + 0.5px)
+    ),
+    repeating-linear-gradient(
+      105deg,
+      transparent 0 9px,
+      var(--btn) 9px 12px
+    ),
+    linear-gradient(
+      90deg,
+      var(--red) var(--fill),
+      color-mix(in srgb, var(--btn-text) 26%, transparent) var(--fill)
+    );
   cursor: pointer;
+}
+.music-volume input:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 6px;
+}
+.music-volume input::-webkit-slider-runnable-track {
+  height: 24px;
+  background: transparent;
+}
+.music-volume input::-moz-range-track {
+  height: 24px;
+  background: transparent;
+}
+.music-volume input::-webkit-slider-thumb {
+  width: 12px;
+  height: 32px;
+  margin-top: -4px;
+  appearance: none;
+  background: var(--btn-text);
+  border: 0;
+  border-radius: 0;
+  box-shadow: 3px 3px 0 var(--red);
+  transform: skewX(-16deg);
+  transition: background var(--motion);
+}
+.music-volume input::-moz-range-thumb {
+  width: 12px;
+  height: 32px;
+  background: var(--btn-text);
+  border: 0;
+  border-radius: 0;
+  box-shadow: 3px 3px 0 var(--red);
+  transform: skewX(-16deg);
+  transition: background var(--motion);
+}
+.music-volume input:hover::-webkit-slider-thumb,
+.music-volume input:focus-visible::-webkit-slider-thumb {
+  background: var(--cyan);
+}
+.music-volume input:hover::-moz-range-thumb,
+.music-volume input:focus-visible::-moz-range-thumb {
+  background: var(--cyan);
+}
+.music-volume output {
+  min-width: 3ch;
+  font-family: var(--display);
+  font-size: 1.625rem;
+  line-height: 1;
+  text-align: right;
+  transform: skewX(-8deg);
+}
+.music-volume output::after {
+  content: "%";
+  font-size: 0.6em;
 }
 @media (prefers-reduced-motion: reduce) {
   .music-volume {
