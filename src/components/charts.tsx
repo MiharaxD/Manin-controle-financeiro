@@ -15,7 +15,7 @@ export default function Charts({ monthly }: { monthly: MonthlyTotal[] }) {
     <div
       className="chart-container"
       role="img"
-      aria-label="Comparação mensal de receitas e despesas; valores disponíveis na tabela abaixo"
+      aria-label="Comparação mensal entre o que entrou e o consumo; valores disponíveis na tabela abaixo"
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
@@ -25,6 +25,19 @@ export default function Charts({ monthly }: { monthly: MonthlyTotal[] }) {
           }))}
           barGap={5}
         >
+          <defs>
+            {/* Consumption is hatched so it never reads as the brand red. */}
+            <pattern
+              id="consumption-hatch"
+              width="6"
+              height="6"
+              patternUnits="userSpaceOnUse"
+              patternTransform="rotate(45)"
+            >
+              <rect width="6" height="6" fill="var(--surface)" />
+              <rect width="2.5" height="6" fill="var(--text)" />
+            </pattern>
+          </defs>
           <CartesianGrid
             vertical={false}
             stroke="var(--border)"
@@ -56,15 +69,17 @@ export default function Charts({ monthly }: { monthly: MonthlyTotal[] }) {
           <Bar
             dataKey="income"
             isAnimationActive={false}
-            name="Receitas"
+            name="Entrou"
             fill="var(--series-income)"
             maxBarSize={28}
           />
           <Bar
             dataKey="expense"
             isAnimationActive={false}
-            name="Despesas"
-            fill="var(--series-expense)"
+            name="Consumo"
+            fill="url(#consumption-hatch)"
+            stroke="var(--text)"
+            strokeWidth={2}
             maxBarSize={28}
           />
         </BarChart>

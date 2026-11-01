@@ -8,11 +8,14 @@ import {
   Plus,
 } from "lucide-react";
 import {
+  addDays,
+  formatDate,
   money,
   moneyInput,
   parseMoney,
   splitInstallments,
 } from "@/lib/finance";
+import { parseQuickEntry } from "@/lib/quick-entry";
 import { mutationSchema } from "@/lib/schemas";
 import type {
   Card,
@@ -165,18 +168,23 @@ export function TransactionForm({
   snapshot: s,
   editor,
   save,
+  saveAnother,
   suggest,
   createCard,
 }: {
   snapshot: Snapshot;
   editor: Extract<Editor, { type: "transaction" }>;
   save: Save;
+  saveAnother?: Save;
   suggest: (merchant: string, fallback: string) => Promise<string>;
   createCard: CreateCard;
 }) {
   const original = editor.value,
     recurrence = editor.recurrence;
+  const fresh = !original && !recurrence;
   const submissionId = useRef(original?.id ?? crypto.randomUUID());
+  const quickRef = useRef<HTMLInputElement>(null);
+  const [quick, setQuick] = useState("");
   const [kind, setKind] = useState<"expense" | "income">(
     original?.kind === "income" ? "income" : "expense",
   );
@@ -197,6 +205,7 @@ export function TransactionForm({
       s.categories[0]?.id ??
       "",
   );
+  const [allCategories, setAllCategories] = useState(false);
   const [merchant, setMerchant] = useState(
     original?.merchant ?? recurrence?.name ?? "",
   );
@@ -217,6 +226,13 @@ export function TransactionForm({
   );
   const [purchaseDate, setPurchaseDate] = useState(
     original?.purchase_date ?? recurrence?.next_date ?? s.today,
+  );
+  const yesterday = addDays(s.today, -1);
+  const [pickDate, setPickDate] = useState(
+    purchaseDate !== s.today && purchaseDate !== yesterday,
+  );
+  const [details, setDetails] = useState(
+    !!original?.description || original?.status === "planned",
   );
   useEffect(() => {
     if (!merchant.trim() || manualCategory) return;
@@ -240,6 +256,28 @@ export function TransactionForm({
     setMakeRecurring(false);
     setSelectedRecurrence("");
   };
+  const applyQuick = (text: string) => {
+    setQuick(text);
+    const q = parseQuickEntry(text, {
+      today: s.today,
+      categories: s.categories,
+      cards: s.cards,
+    });
+    const nextMethod = q.method ?? "pix";
+    setKind(q.kind);
+    setAmount(q.amount_cents ? moneyInput(q.amount_cents) : "");
+    setMerchant(q.merchant);
+    setMethod(nextMethod);
+    setCount(nextMethod === "credit" ? (q.installments ?? 1) : 1);
+    if (q.card_id) setCard(q.card_id);
+    const date = q.purchase_date ?? s.today;
+    setPurchaseDate(date);
+    setPickDate(date !== s.today && date !== yesterday);
+    if (q.category_id) setCategory(q.category_id);
+    setManualCategory(!!q.category_id);
+    setSelectedRecurrence("");
+    setMakeRecurring(false);
+  };
   const reconcile = (id: string) => {
     setMakeRecurring(false);
     setSelectedRecurrence(id);
@@ -254,14 +292,24 @@ export function TransactionForm({
     setAccount(r.account_id ?? s.accounts[0]?.id ?? "");
     setCount(1);
     setPurchaseDate(r.next_date);
+    setPickDate(r.next_date !== s.today && r.next_date !== yesterday);
   };
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (busy) return;
     setError("");
+    const element = event.currentTarget;
+    const again =
+      !!saveAnother &&
+      (event.nativeEvent as SubmitEvent).submitter?.dataset.again === "true";
     try {
-      const form = new FormData(event.currentTarget),
+      const form = new FormData(element),
         r = s.recurrences.find((r) => r.id === selectedRecurrence);
+      if (!category) throw new Error("Escolha uma categoria.");
+      if (method !== "credit" && !account) {
+        setDetails(true);
+        throw new Error("Escolha a conta em Mais detalhes.");
+      }
       const value: Mutation = {
         action: "transaction",
         payload: {
@@ -289,7 +337,20 @@ export function TransactionForm({
       const parsed = mutationSchema.safeParse(value);
       if (!parsed.success) throw new Error(parsed.error.issues[0].message);
       setBusy(true);
-      await save(value);
+      if (again && saveAnother) {
+        await saveAnother(value);
+        // Keeps how and when it was paid; clears what changes per purchase.
+        submissionId.current = crypto.randomUUID();
+        element.reset();
+        setQuick("");
+        setAmount("");
+        setMerchant("");
+        setManualCategory(false);
+        setSelectedRecurrence("");
+        setMakeRecurring(false);
+        setCount(1);
+        quickRef.current?.focus();
+      } else await save(value);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível salvar.");
     } finally {
@@ -305,8 +366,67 @@ export function TransactionForm({
   } catch {
     /* Incomplete amount while typing. */
   }
+  const methodName = {
+    pix: "Pix",
+    debit: "Débito",
+    cash: "Dinheiro",
+    credit: "Crédito",
+  } as const;
+  let quickSummary = "";
+  if (quick.trim()) {
+    let value = "valor?";
+    try {
+      value = money(parseMoney(amount));
+    } catch {
+      /* Shown as missing. */
+    }
+    quickSummary = [
+      kind === "income" ? "Receita" : "Despesa",
+      value,
+      method === "credit"
+        ? `Crédito ${count}x${s.cards.find((c) => c.id === card) ? ` · ${s.cards.find((c) => c.id === card)!.name}` : ""}`
+        : methodName[method as keyof typeof methodName],
+      s.categories.find((c) => c.id === category)?.name,
+      purchaseDate === s.today
+        ? "hoje"
+        : purchaseDate === yesterday
+          ? "ontem"
+          : formatDate(purchaseDate, { day: "2-digit", month: "short" }),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  const shown = allCategories
+    ? s.categories
+    : [
+        ...s.categories.slice(0, 6),
+        ...s.categories.slice(6).filter((c) => c.id === category),
+      ];
+  const hidden = s.categories.length - 6;
   return (
     <form onSubmit={submit} className="entry-form">
+      {fresh && (
+        <div className="quick-entry">
+          <label>
+            Escreva rápido
+            <input
+              ref={quickRef}
+              aria-label="Lançamento rápido"
+              value={quick}
+              onChange={(e) => applyQuick(e.target.value)}
+              placeholder="tênis 200 crédito 3x"
+              maxLength={140}
+              autoComplete="off"
+              autoFocus
+              enterKeyHint="done"
+            />
+          </label>
+          <p className="quick-summary" aria-live="polite">
+            {quickSummary ||
+              "Valor, forma de pagamento, parcelas e “ontem” ou 12/11. Enter salva."}
+          </p>
+        </div>
+      )}
       <div className="segmented" aria-label="Tipo de lançamento">
         {(["expense", "income"] as const).map((k) => (
           <button
@@ -347,7 +467,7 @@ export function TransactionForm({
             placeholder="0,00"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            autoFocus
+            autoFocus={!fresh}
             required
             maxLength={18}
             autoComplete="off"
@@ -356,12 +476,8 @@ export function TransactionForm({
       </label>
       <div className="field-group">
         <span className="field-label">Categoria</span>
-        <div
-          className="category-pills"
-          role="group"
-          aria-label="Categorias sugeridas"
-        >
-          {s.categories.slice(0, 6).map((c) => (
+        <div className="category-pills" role="group" aria-label="Categoria">
+          {shown.map((c) => (
             <button
               type="button"
               key={c.id}
@@ -373,59 +489,22 @@ export function TransactionForm({
               }}
             >
               <CategoryIcon name={c.icon} size={16} />
+              {c.parent_id ? "↳ " : ""}
               {c.name}
             </button>
           ))}
+          {hidden > 0 && (
+            <button
+              type="button"
+              className="more-pill"
+              aria-expanded={allCategories}
+              onClick={() => setAllCategories(!allCategories)}
+            >
+              {allCategories ? "Menos categorias" : `+ ${hidden} outras`}
+            </button>
+          )}
         </div>
-        <select
-          aria-label="Todas as categorias"
-          value={category}
-          onChange={(e) => {
-            setCategory(e.target.value);
-            setManualCategory(true);
-          }}
-          required
-        >
-          <option value="" disabled>
-            Selecione
-          </option>
-          {s.categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.parent_id ? "↳ " : ""}
-              {c.name}
-            </option>
-          ))}
-        </select>
       </div>
-      <div className="form-grid">
-        <label>
-          Estabelecimento
-          <input
-            value={merchant}
-            onChange={(e) => setMerchant(e.target.value)}
-            maxLength={100}
-            placeholder="Ex.: café do bairro"
-          />
-        </label>
-        <label>
-          Data da compra
-          <input
-            type="date"
-            value={purchaseDate}
-            onChange={(e) => setPurchaseDate(e.target.value)}
-            required
-          />
-        </label>
-      </div>
-      <label>
-        Descrição <span className="optional">opcional</span>
-        <input
-          name="description"
-          defaultValue={original?.description}
-          placeholder="Algo que você quer lembrar"
-          maxLength={120}
-        />
-      </label>
       <div className="field-group">
         <span className="field-label">Como foi pago?</span>
         <div
@@ -447,19 +526,12 @@ export function TransactionForm({
                 }}
               >
                 {m === "credit" && <CreditCard size={16} />}
-                {
-                  {
-                    pix: "Pix",
-                    debit: "Débito",
-                    cash: "Dinheiro",
-                    credit: "Crédito",
-                  }[m]
-                }
+                {methodName[m]}
               </button>
             ))}
         </div>
       </div>
-      {method === "credit" ? (
+      {method === "credit" && (
         <div className="form-grid">
           <CardPicker
             cards={s.cards}
@@ -499,23 +571,6 @@ export function TransactionForm({
             </div>
           </div>
         </div>
-      ) : (
-        <label>
-          Conta
-          <select
-            aria-label="Conta"
-            value={account}
-            onChange={(e) => setAccount(e.target.value)}
-            required
-          >
-            <option value="">Selecione</option>
-            {s.accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
-        </label>
       )}
       {installmentHint && <p className="hint">{installmentHint}</p>}
       {method === "credit" && (
@@ -524,58 +579,163 @@ export function TransactionForm({
           meses seguintes.
         </p>
       )}
-      <label>
-        Estado
-        <select name="status" defaultValue={original?.status ?? "actual"}>
-          <option value="actual">Lançamento efetivo</option>
-          <option value="planned">Previsão · ainda não aconteceu</option>
-        </select>
-      </label>
-      {!original && kind === "expense" && count === 1 && (
-        <>
-          <label>
-            Conciliar uma recorrência <span className="optional">opcional</span>
-            <select
-              value={selectedRecurrence}
-              onChange={(e) => reconcile(e.target.value)}
+      <div className="field-group">
+        <span className="field-label">Quando?</span>
+        <div className="method-pills" role="group" aria-label="Data da compra">
+          {[
+            [s.today, "Hoje"],
+            [yesterday, "Ontem"],
+          ].map(([date, label]) => (
+            <button
+              type="button"
+              key={label}
+              aria-pressed={!pickDate && purchaseDate === date}
+              className={!pickDate && purchaseDate === date ? "selected" : ""}
+              onClick={() => {
+                setPickDate(false);
+                setPurchaseDate(date);
+              }}
             >
-              <option value="">Sem vínculo</option>
-              {s.recurrences
-                .filter((r) => r.status === "active")
-                .map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name} · {r.next_date.split("-").reverse().join("/")}
+              {label}
+            </button>
+          ))}
+          <button
+            type="button"
+            aria-pressed={pickDate}
+            className={pickDate ? "selected" : ""}
+            onClick={() => setPickDate(true)}
+          >
+            Outra data
+          </button>
+        </div>
+        {pickDate && (
+          <input
+            type="date"
+            aria-label="Data da compra"
+            value={purchaseDate}
+            onChange={(e) => setPurchaseDate(e.target.value)}
+            required
+          />
+        )}
+      </div>
+      <label>
+        Estabelecimento
+        <input
+          value={merchant}
+          onChange={(e) => setMerchant(e.target.value)}
+          maxLength={100}
+          placeholder="Ex.: café do bairro"
+        />
+      </label>
+      <details
+        className="more-details"
+        open={details}
+        onToggle={(e) => setDetails(e.currentTarget.open)}
+      >
+        <summary>
+          Mais detalhes
+          <small>
+            Descrição, {method === "credit" ? "" : "conta, "}previsão
+            {!original && kind === "expense" && count === 1
+              ? ", recorrência"
+              : ""}
+          </small>
+        </summary>
+        <div className="more-details-body">
+          <label>
+            Descrição <span className="optional">opcional</span>
+            <input
+              name="description"
+              defaultValue={original?.description}
+              placeholder="Algo que você quer lembrar"
+              maxLength={120}
+            />
+          </label>
+          {method !== "credit" && (
+            <label>
+              Conta
+              <select
+                aria-label="Conta"
+                value={account}
+                onChange={(e) => setAccount(e.target.value)}
+              >
+                <option value="">Selecione</option>
+                {s.accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
                   </option>
                 ))}
-            </select>
-          </label>
-          {!selectedRecurrence && (
-            <label className="check-label">
-              <input
-                type="checkbox"
-                name="make_recurring"
-                checked={makeRecurring}
-                onChange={(e) => setMakeRecurring(e.target.checked)}
-              />{" "}
-              Repetir mensalmente
+              </select>
             </label>
           )}
-          {makeRecurring && !selectedRecurrence && (
-            <RecurrenceTypePicker
-              types={s.recurrence_types}
-              name="recurrence_type_id"
-            />
+          <label>
+            Estado
+            <select name="status" defaultValue={original?.status ?? "actual"}>
+              <option value="actual">Lançamento efetivo</option>
+              <option value="planned">Previsão · ainda não aconteceu</option>
+            </select>
+          </label>
+          {!original && kind === "expense" && count === 1 && (
+            <>
+              <label>
+                Conciliar uma recorrência{" "}
+                <span className="optional">opcional</span>
+                <select
+                  value={selectedRecurrence}
+                  onChange={(e) => reconcile(e.target.value)}
+                >
+                  <option value="">Sem vínculo</option>
+                  {s.recurrences
+                    .filter((r) => r.status === "active")
+                    .map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name} · {r.next_date.split("-").reverse().join("/")}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {!selectedRecurrence && (
+                <label className="check-label">
+                  <input
+                    type="checkbox"
+                    name="make_recurring"
+                    checked={makeRecurring}
+                    onChange={(e) => setMakeRecurring(e.target.checked)}
+                  />{" "}
+                  Repetir mensalmente
+                </label>
+              )}
+              {makeRecurring && !selectedRecurrence && (
+                <RecurrenceTypePicker
+                  types={s.recurrence_types}
+                  name="recurrence_type_id"
+                />
+              )}
+            </>
           )}
-        </>
-      )}
+        </div>
+      </details>
       <Failure message={error} />
-      <button type="submit" className="button primary submit" disabled={busy}>
-        {busy
-          ? "Salvando…"
-          : original
-            ? "Salvar alterações"
-            : "Salvar lançamento"}
-      </button>
+      <div className="form-actions">
+        <button type="submit" className="button primary" disabled={busy}>
+          {busy
+            ? "Salvando…"
+            : original
+              ? "Salvar alterações"
+              : "Salvar lançamento"}
+        </button>
+        {saveAnother && !original && (
+          <button
+            type="submit"
+            className="button secondary"
+            data-again="true"
+            aria-label="Salvar e lançar outro"
+            disabled={busy}
+          >
+            + Outro
+          </button>
+        )}
+      </div>
     </form>
   );
 }

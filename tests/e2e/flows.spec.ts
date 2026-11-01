@@ -74,9 +74,39 @@ test("lançamento rápido, edição, busca, exclusão com desfazer e persistênc
   await expect(page.locator(".transaction-row")).toHaveCount(1);
   expect(errors).toEqual([]);
 });
+test("frase no lançamento rápido preenche e salva com Enter", async ({
+  page,
+}) => {
+  await page.goto("/demo");
+  await page
+    .getByRole("button", { name: "Adicionar lançamento", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByLabel("Lançamento rápido")
+    .fill("lanche teste rapido 32,50 pix");
+  await expect(dialog.getByLabel("Valor", { exact: true })).toHaveValue(
+    "32,50",
+  );
+  await expect(dialog.getByLabel("Estabelecimento")).toHaveValue(
+    "Lanche teste rapido",
+  );
+  await dialog
+    .getByRole("button", { name: "Salvar e lançar outro", exact: true })
+    .click();
+  await expect(dialog.getByLabel("Lançamento rápido")).toHaveValue("");
+  await dialog.getByLabel("Lançamento rápido").fill("tenis teste 200 credito 3x");
+  await expect(dialog.getByLabel("Parcelas", { exact: true })).toHaveValue("3");
+  await dialog.getByLabel("Lançamento rápido").press("Enter");
+  await expect(dialog).toBeHidden();
+  await nav(page, "Transações");
+  await page.getByLabel("Buscar lançamentos").fill("teste");
+  await expect(page.locator(".transaction-row")).toHaveCount(2);
+});
 test("cartão, compra parcelada, fatura e pagamento", async ({ page }) => {
   await page.goto("/demo");
   await nav(page, "Recorrentes");
+  await page.getByRole("tab", { name: "Cartões", exact: true }).click();
   await page.getByRole("button", { name: "Novo apelido" }).click();
   let dialog = page.getByRole("dialog");
   await dialog

@@ -1,6 +1,7 @@
 "use client";
 import { ArrowRight, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import {
+  daysInMonth,
   money,
   formatDate,
   monthLabel,
@@ -9,7 +10,14 @@ import {
 } from "@/lib/finance";
 import type { Snapshot, Transaction } from "@/lib/types";
 import type { Page } from "./types";
-import { Panel, Empty, TransactionRows, Categories, BudgetBar } from "./shared";
+import {
+  Panel,
+  Empty,
+  TransactionRows,
+  Categories,
+  BudgetBar,
+  BudgetMeter,
+} from "./shared";
 export function Dashboard({
   s,
   onPage,
@@ -55,8 +63,69 @@ export function Dashboard({
   );
   const max = Math.max(...s.monthly.map((m) => m.expense), 1);
   const monthName = monthLabel(s.month).split(" ")[0];
+  const overall = s.budgets.find((b) => !b.category_id);
+  const isCurrent = s.month === monthOf(s.today);
+  const daysLeft = isCurrent
+    ? daysInMonth(Number(s.today.slice(0, 4)), Number(s.today.slice(5, 7))) -
+      Number(s.today.slice(8))
+    : 0;
+  const next = active.find((r) => r.next_date >= s.today);
+  const top = [...s.category_totals].sort((a, b) => b.total - a.total)[0];
+  const topName = s.categories.find((c) => c.id === top?.category_id)?.name;
   return (
     <>
+      <section className="month-pulse" aria-label="Como está o mês">
+        {overall ? (
+          <div className="pulse-budget">
+            <span className="pulse-label">
+              {current.expense > overall.amount_cents
+                ? "Passou do orçamento"
+                : "Ainda dá pra gastar"}
+            </span>
+            <strong
+              className={
+                current.expense > overall.amount_cents ? "over" : "positive"
+              }
+            >
+              {money(Math.abs(overall.amount_cents - current.expense))}
+            </strong>
+            <BudgetMeter spent={current.expense} limit={overall.amount_cents} />
+            <span className="pulse-detail">
+              {Math.round((current.expense * 100) / overall.amount_cents)}% de{" "}
+              {money(overall.amount_cents)}
+              {isCurrent &&
+                ` · ${daysLeft === 0 ? "último dia" : daysLeft === 1 ? "falta 1 dia" : `faltam ${daysLeft} dias`}`}
+            </span>
+          </div>
+        ) : (
+          <div className="pulse-budget">
+            <span className="pulse-label">Quanto quer gastar em {monthName}?</span>
+            <p className="pulse-detail">
+              Com um orçamento geral, o Manin mostra aqui quanto ainda dá pra
+              gastar.
+            </p>
+            <button
+              className="text-button"
+              onClick={() => onPage("budgets")}
+            >
+              Definir orçamento <ArrowRight size={15} />
+            </button>
+          </div>
+        )}
+        {next && (
+          <button
+            className="pulse-next"
+            onClick={() => onPage("recurrences")}
+            aria-label={`Próxima cobrança: ${next.name}, ${formatDate(next.next_date)}, ${money(next.amount_cents)}`}
+          >
+            <b>Próxima</b>
+            <span>
+              {next.name} · {formatDate(next.next_date)}
+            </span>
+            <strong>{money(next.amount_cents)}</strong>
+          </button>
+        )}
+      </section>
       <section className="month-card" aria-label={`Resumo de ${monthName}`}>
         <div className="hero-consumption">
           <h2 className="eyebrow">Consumo de {monthName}</h2>
@@ -133,13 +202,13 @@ export function Dashboard({
             </div>
             <div className="cash-total">
               <dt>
-                <span aria-hidden="true">=</span>Fluxo líquido
+                <span aria-hidden="true">=</span>Sobrou no mês
               </dt>
               <dd>{money(current.cash_in - current.cash_out)}</dd>
             </div>
           </dl>
           <p className="hero-footnote">
-            Crédito entra no caixa quando você registra o pagamento da fatura.
+            Compras no crédito só entram aqui quando você paga a fatura.
           </p>
         </div>
       </section>
@@ -180,6 +249,11 @@ export function Dashboard({
           <Panel
             title="Onde seu dinheiro foi"
             className="categories-panel"
+            preview={
+              top && topName && current.expense
+                ? `${topName} ${Math.round((top.total * 100) / current.expense)}% do consumo`
+                : "Nada consumido ainda"
+            }
             action={<span className="muted small">Consumo realizado</span>}
           >
             <Categories s={s} />
@@ -189,6 +263,7 @@ export function Dashboard({
           <Panel
             title="Vem pela frente"
             className="ahead-panel"
+            preview={`${money(bills)} no crédito do mês · ${active.length} ${active.length === 1 ? "recorrente" : "recorrentes"}`}
             action={
               <button
                 className="text-button"
@@ -242,6 +317,11 @@ export function Dashboard({
           <Panel
             title="Orçamentos"
             className="budgets-panel"
+            preview={
+              s.budgets.length
+                ? `${s.budgets.length} ${s.budgets.length === 1 ? "orçamento" : "orçamentos"} neste mês`
+                : "Nenhum orçamento neste mês"
+            }
             action={
               <button
                 className="text-button"

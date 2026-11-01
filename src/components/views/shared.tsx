@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, type CSSProperties } from "react";
+import { Fragment, useId, useState, type CSSProperties } from "react";
 import { ArrowDownLeft, Repeat2, Wallet, Ellipsis } from "lucide-react";
 import { formatDate, money } from "@/lib/finance";
 import type { Budget, Snapshot, Transaction } from "@/lib/types";
@@ -9,19 +9,45 @@ export function Panel({
   action,
   children,
   className = "",
+  preview,
 }: {
   title: string;
   action?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  // On phones the panel starts closed, showing this line instead of the body.
+  preview?: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const bodyId = useId();
   return (
-    <section className={`panel ${className}`}>
+    <section
+      className={`panel ${className}`}
+      data-collapsed={preview && !open ? "true" : undefined}
+    >
       <div className="panel-heading">
         <h2>{title}</h2>
         {action}
       </div>
-      {children}
+      {preview ? (
+        <>
+          <button
+            className="panel-toggle"
+            aria-expanded={open}
+            aria-controls={bodyId}
+            onClick={() => setOpen(!open)}
+          >
+            <span>{preview}</span>
+            <span aria-hidden="true">{open ? "−" : "+"}</span>
+            <span className="sr-only">{open ? "Recolher" : "Mostrar"}</span>
+          </button>
+          <div id={bodyId} className="panel-body">
+            {children}
+          </div>
+        </>
+      ) : (
+        children
+      )}
     </section>
   );
 }
@@ -42,6 +68,36 @@ export function Empty({
       <h3>{title}</h3>
       {text && <p>{text}</p>}
       {action}
+    </div>
+  );
+}
+export function BudgetMeter({
+  spent,
+  limit,
+  label = "Uso do orçamento geral",
+}: {
+  spent: number;
+  limit: number;
+  label?: string;
+}) {
+  const percentage = Math.round((spent * 100) / limit),
+    over = percentage >= 100;
+  return (
+    <div
+      className={`progress ${over ? "over" : percentage >= 80 ? "warning" : ""}`}
+      role="progressbar"
+      aria-label={label}
+      aria-valuenow={Math.min(percentage, 100)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
+      {Array.from({ length: 10 }, (_, i) => (
+        <i
+          key={i}
+          className={i < Math.round(percentage / 10) ? "filled" : ""}
+          style={{ "--i": i } as CSSProperties}
+        />
+      ))}
     </div>
   );
 }
@@ -75,22 +131,11 @@ export function BudgetBar({
           {percentage}%
         </span>
       </div>
-      <div
-        className={`progress ${over ? "over" : percentage >= 80 ? "warning" : ""}`}
-        role="progressbar"
-        aria-label={`Orçamento ${category?.name ?? "geral"}`}
-        aria-valuenow={Math.min(percentage, 100)}
-        aria-valuemin={0}
-        aria-valuemax={100}
-      >
-        {Array.from({ length: 10 }, (_, i) => (
-          <i
-            key={i}
-            className={i < Math.round(percentage / 10) ? "filled" : ""}
-            style={{ "--i": i } as CSSProperties}
-          />
-        ))}
-      </div>
+      <BudgetMeter
+        spent={spent}
+        limit={budget.amount_cents}
+        label={`Orçamento ${category?.name ?? "geral"}`}
+      />
       <div className="between budget-values">
         <span>
           {money(spent)}{" "}

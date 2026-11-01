@@ -16,19 +16,19 @@ export function Reports({ s }: { s: Snapshot }) {
     <>
       <div className="metric-grid">
         <div className="metric">
-          <span>Resultado do consumo</span>
+          <span>Entrou − consumo</span>
           <strong>{money(current.income - current.expense)}</strong>
-          <small>Receitas menos compras realizadas</small>
+          <small>Receitas menos compras realizadas, crédito incluso</small>
         </div>
         <div className="metric">
-          <span>Saídas pagas</span>
+          <span>Saiu (pago)</span>
           <strong>{money(current.cash_out)}</strong>
           <small>Despesas sem crédito + pagamentos de fatura</small>
         </div>
         <div className="metric">
-          <span>Fluxo líquido registrado</span>
+          <span>Sobrou no mês</span>
           <strong>{money(current.cash_in - current.cash_out)}</strong>
-          <small>Não representa o saldo bancário</small>
+          <small>Entrou − saiu (pago). Não é o saldo do banco</small>
         </div>
       </div>
       <div className="report-grid">
@@ -39,11 +39,11 @@ export function Reports({ s }: { s: Snapshot }) {
           <div className="chart-legend">
             <span>
               <i style={{ background: "var(--series-income)" }} />
-              Receitas
+              Entrou
             </span>
             <span>
-              <i style={{ background: "var(--series-expense)" }} />
-              Despesas de consumo
+              <i className="swatch-hatch" />
+              Consumo
             </span>
           </div>
           <Charts monthly={s.monthly} />
@@ -58,11 +58,11 @@ export function Reports({ s }: { s: Snapshot }) {
             <thead>
               <tr>
                 <th>Mês</th>
-                <th>Receitas</th>
+                <th>Entrou</th>
                 <th>Consumo</th>
                 <th>Recorrências realizadas</th>
-                <th>Saídas pagas</th>
-                <th>Fluxo líquido</th>
+                <th>Saiu (pago)</th>
+                <th>Sobrou no mês</th>
               </tr>
             </thead>
             <tbody>

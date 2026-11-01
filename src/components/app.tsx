@@ -109,6 +109,9 @@ export function FinanceApp({
     monthRef = useRef(initial.month);
   const [s, setSnapshot] = useState(initial),
     [page, setPage] = useState<Page>("home"),
+    [recurrenceTab, setRecurrenceTab] = useState<"services" | "cards">(
+      "services",
+    ),
     [editor, setEditor] = useState<Editor | null>(null);
   const [settings, setSettings] = useState(false),
     [toast, setToast] = useState<{
@@ -150,6 +153,17 @@ export function FinanceApp({
     },
     [repository, commit],
   );
+  const topbarRef = useRef<HTMLElement>(null);
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const topbar = topbarRef.current;
+    if (!topbar || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) =>
+      setCompact(!entry.isIntersecting),
+    );
+    observer.observe(topbar);
+    return () => observer.disconnect();
+  }, []);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       setTheme(document.documentElement.dataset.theme ?? "light");
@@ -220,6 +234,10 @@ export function FinanceApp({
           ? "Pagamento registrado."
           : "Salvo neste dispositivo.",
     });
+  };
+  const saveAnother = async (mutation: Mutation) => {
+    await mutate(mutation);
+    setToast({ text: "Salvo. Pode lançar o próximo." });
   };
   const safeMutate = async (mutation: Mutation) => {
     try {
@@ -417,7 +435,7 @@ export function FinanceApp({
   const title =
     navigation.find((n) => n.id === page)?.title ?? navigation[0].title;
   const pageAction =
-    page === "recurrences"
+    page === "recurrences" && recurrenceTab === "services"
       ? { label: "Nova recorrente", editor: { type: "recurrence" } as Editor }
       : page === "budgets"
         ? { label: "Novo orçamento", editor: { type: "budget" } as Editor }
@@ -499,7 +517,7 @@ export function FinanceApp({
       </aside>
       <div className="app-body">
         <div key={page} className="wipe" aria-hidden="true" />
-        <header className="topbar">
+        <header className="topbar" ref={topbarRef}>
           <div className="mobile-brand">
             <Logo compact />
           </div>
@@ -608,6 +626,43 @@ export function FinanceApp({
             </button>
           )}
         </header>
+        {compact && (
+          <div className="topbar-mini">
+            <span className="topbar-mini-title">{title}</span>
+            <div className="topbar-mini-month">
+              <button
+                className="icon-button"
+                disabled={refreshing}
+                aria-label="Voltar um mês"
+                onClick={() => {
+                  void changeMonth(-1);
+                }}
+              >
+                <ChevronLeft size={18} strokeWidth={3} />
+              </button>
+              <span>{monthTitle(s.month)}</span>
+              <button
+                className="icon-button"
+                disabled={refreshing}
+                aria-label="Avançar um mês"
+                onClick={() => {
+                  void changeMonth(1);
+                }}
+              >
+                <ChevronRight size={18} strokeWidth={3} />
+              </button>
+            </div>
+            <button
+              className="button primary"
+              onClick={() =>
+                setEditor(pageAction?.editor ?? { type: "transaction" })
+              }
+            >
+              <Plus size={18} />
+              {pageAction?.label ?? "Novo lançamento"}
+            </button>
+          </div>
+        )}
         <main>
           {failure && (
             <p role="alert" className="form-error">
@@ -638,23 +693,64 @@ export function FinanceApp({
           )}
           {page === "recurrences" && (
             <>
-              <Recurrences
-                s={s}
-                open={setEditor}
-                mutate={safeMutate}
-                history={setHistory}
-              />
-              <div className="credit-section">
-                <h2>Apelidos no crédito</h2>
-                <Cards
-                  s={s}
-                  open={setEditor}
-                  detail={(card, month) => setInvoice({ card, month })}
-                  history={(card) => {
-                    setPageFilters({ card: card.id, from: "", to: "" });
-                    setPage("transactions");
-                  }}
-                />
+              <div
+                className="segmented page-tabs"
+                role="tablist"
+                aria-label="O que ver em Recorrentes"
+              >
+                {(
+                  [
+                    ["services", "Assinaturas e contas"],
+                    ["cards", "Cartões"],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    id={`tab-${id}`}
+                    role="tab"
+                    aria-selected={recurrenceTab === id}
+                    aria-controls="recurrence-panel"
+                    tabIndex={recurrenceTab === id ? 0 : -1}
+                    className={recurrenceTab === id ? "selected" : ""}
+                    onClick={() => setRecurrenceTab(id)}
+                    onKeyDown={(e) => {
+                      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight")
+                        return;
+                      const other = id === "services" ? "cards" : "services";
+                      setRecurrenceTab(other);
+                      document.getElementById(`tab-${other}`)?.focus();
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div
+                id="recurrence-panel"
+                role="tabpanel"
+                aria-labelledby={`tab-${recurrenceTab}`}
+              >
+                {recurrenceTab === "services" ? (
+                  <Recurrences
+                    s={s}
+                    open={setEditor}
+                    mutate={safeMutate}
+                    history={setHistory}
+                  />
+                ) : (
+                  <div className="credit-section">
+                    <h2>Apelidos no crédito</h2>
+                    <Cards
+                      s={s}
+                      open={setEditor}
+                      detail={(card, month) => setInvoice({ card, month })}
+                      history={(card) => {
+                        setPageFilters({ card: card.id, from: "", to: "" });
+                        setPage("transactions");
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -831,6 +927,7 @@ export function FinanceApp({
                 snapshot={s}
                 editor={editor}
                 save={save}
+                saveAnother={saveAnother}
                 suggest={suggest}
                 createCard={createCard}
               />

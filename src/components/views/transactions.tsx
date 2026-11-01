@@ -334,27 +334,29 @@ export function Transactions({
           text="Experimente outro período ou adicione um lançamento."
         />
       )}
-      <div className="pagination">
-        <span>
-          Página {page + 1} de {Math.max(1, Math.ceil(count / 30))}
-        </span>
-        <button
-          className="icon-button"
-          disabled={!page || loading}
-          aria-label="Página anterior"
-          onClick={() => setPage((p) => p - 1)}
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <button
-          className="icon-button"
-          disabled={(page + 1) * 30 >= count || loading}
-          aria-label="Próxima página"
-          onClick={() => setPage((p) => p + 1)}
-        >
-          <ChevronRight size={18} />
-        </button>
-      </div>
+      {count > 30 && (
+        <div className="pagination">
+          <span>
+            Página {page + 1} de {Math.max(1, Math.ceil(count / 30))}
+          </span>
+          <button
+            className="icon-button"
+            disabled={!page || loading}
+            aria-label="Página anterior"
+            onClick={() => setPage((p) => p - 1)}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            className="icon-button"
+            disabled={(page + 1) * 30 >= count || loading}
+            aria-label="Próxima página"
+            onClick={() => setPage((p) => p + 1)}
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      )}
     </section>
   );
 }

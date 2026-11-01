@@ -59,6 +59,10 @@ export function addMonths(
     month = next.getUTCMonth() + 1;
   return `${year}-${String(month).padStart(2, "0")}-${String(Math.min(anchor, daysInMonth(year, month))).padStart(2, "0")}`;
 }
+export function addDays(date: string, days: number): string {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
 export function formatDate(date: string, options?: Intl.DateTimeFormatOptions) {
   return new Intl.DateTimeFormat("pt-BR", {
     timeZone: "UTC",

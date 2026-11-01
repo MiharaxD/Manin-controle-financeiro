@@ -12,6 +12,9 @@ async function nav(page: Page) {
     .getByRole("button", { name: "Recorrentes", exact: true })
     .click();
 }
+async function tab(page: Page, name: string) {
+  await page.getByRole("tab", { name, exact: true }).click();
+}
 async function settings(page: Page) {
   await page
     .locator(".topbar")
@@ -96,9 +99,11 @@ test("recorrentes têm tipo personalizado, crédito por apelido, filtros e backu
     .filter({ hasText: "Treino mensal" });
   await expect(row).toContainText("Academia");
   await expect(row).toContainText("Crédito · Compras pessoais");
+  await tab(page, "Cartões");
   await expect(
     page.locator(".card-panel").filter({ hasText: "Compras pessoais" }),
   ).toContainText("100,01");
+  await tab(page, "Assinaturas e contas");
   await page.getByLabel("Filtrar por tipo").selectOption({ label: "Seguro" });
   await expect(row).toHaveCount(0);
   await page.getByLabel("Filtrar por tipo").selectOption({ label: "Academia" });
@@ -174,6 +179,7 @@ test("recorrentes têm tipo personalizado, crédito por apelido, filtros e backu
   await nav(page);
   await expect(row).toContainText("Fitness");
   await expect(row).toContainText("Pix");
+  await tab(page, "Cartões");
   await expect(
     page.locator(".card-panel").filter({ hasText: "Compras pessoais" }),
   ).toContainText("100,01");
@@ -199,6 +205,7 @@ test("despesa vira recorrente com tipo e apelido criado no lançamento", async (
   await modal
     .getByRole("button", { name: "Criar apelido", exact: true })
     .click();
+  await modal.getByText("Mais detalhes").click();
   await modal.getByLabel("Repetir mensalmente").check();
   await modal
     .getByLabel("Tipo de recorrente")

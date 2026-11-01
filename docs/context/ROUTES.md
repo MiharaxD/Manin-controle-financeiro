@@ -3,21 +3,21 @@
 App de página única: `src/app/page.tsx` → `src/components/local-app.tsx` (abre o IndexedDB) → `src/components/app.tsx` (`FinanceApp`: navegação, estado, telas). Domínio puro em `src/lib/`. Sem backend: `output: export` gera `out/`.
 
 ## Design / UI / tema
-- **Ir direto para:** `src/app/globals.css` (tokens em `:root` e `:root[data-theme="dark"]`), `src/components/views/*.tsx` da tela, `src/components/views/shared.tsx` (Panel, Empty, BudgetBar em 10 segmentos, TransactionRows com carimbo do dia), `src/components/icons.tsx` (`Ransom`, `Burst`, `Logo`), `src/components/charts.tsx`, `src/components/ui/dialog.tsx` (Radix). Fontes em `public/fonts/`.
-- **Testes:** `pnpm test:visual` (exige `pnpm dev` ativo; capturas em `artifacts/redesign/`), `pnpm test:e2e`. Os testes navegam pelo título `h1` da tela (nome acessível vem do `sr-only` do `Ransom`) e, no celular, abrem Orçamentos/Relatórios pelo "Mais". Classes usadas como seletor: `.topbar`, `.desktop-add`, `.fab`, `.hero-amount`, `.transaction-row`, `.row-menu`, `.recurrence-row`, `.card-panel`, `.demo-banner`, `.segmented`.
+- **Ir direto para:** `src/app/globals.css` (tokens em `:root` e `:root[data-theme="dark"]`), `src/components/views/*.tsx` da tela, `src/components/views/shared.tsx` (Panel com `preview` recolhível no celular, Empty, BudgetMeter/BudgetBar em 10 segmentos, TransactionRows com carimbo do dia), `src/components/icons.tsx` (`Ransom`, `Burst`, `Logo`), `src/components/charts.tsx`, `src/components/ui/dialog.tsx` (Radix). Fontes em `public/fonts/`.
+- **Testes:** `pnpm test:visual` (exige `pnpm dev` ativo; capturas em `artifacts/redesign/`), `pnpm test:e2e`. Os testes navegam pelo título `h1` da tela (nome acessível vem do `sr-only` do `Ransom`) e, no celular, abrem Orçamentos/Relatórios pelo "Mais". Classes usadas como seletor: `.topbar`, `.desktop-add`, `.fab`, `.hero-amount`, `.transaction-row`, `.row-menu`, `.recurrence-row`, `.card-panel`, `.demo-banner`, `.segmented`. Cartões ficam na aba `role="tab"` "Cartões" de Recorrentes; "Repetir mensalmente" fica dentro de "Mais detalhes" no lançamento.
 - **Cuidados:** direção visual e movimento em DECISIONS.md. Mudar nos dois temas e conferir 1440/390/320px e `prefers-reduced-motion`. Placas com placa girada atrás usam `::before` (placa) + `::after` (fundo) para não inverter a ordem quando uma animação cria contexto de empilhamento. Troca de tela remonta `.stage` e `.wipe` por `key={page}` em `app.tsx`. Em `TransactionRows`, o `::after` de `.transaction-text` cobre a linha toda para abrir a edição; outro controle na linha precisa de `z-index` acima dele, como o `.row-menu`. Diálogos condicionais ficam dentro de `<DialogExit>` (`ui/dialog.tsx`), que mantém a janela montada com `open={false}` enquanto a saída (`[data-state="closed"]`) roda; diálogo novo também precisa dele.
-- **Arquivo grande:** `globals.css` (~3.600 linhas). Busque pela classe com grep ou pelos comentários de seção (`Shell`, `Main area`, `Panels`, `Rows`, `Transactions`, `Dialogs`, `Forms`, `Motion`); `@media` no fim.
+- **Arquivo grande:** `globals.css` (~4.000 linhas). Busque pela classe com grep ou pelos comentários de seção (`Shell`, `Main area`, `Panels`, `Rows`, `Transactions`, `Dialogs`, `Forms`, `Motion`); `@media` no fim.
 
 ## Telas e navegação
-- **Ir direto para:** `src/components/app.tsx`; telas em `views/dashboard.tsx` (Início), `transactions.tsx`, `recurrences.tsx` (Recorrentes + apelidos de cartão), `cards.tsx`, `invoice.tsx` (detalhe por cartão/mês), `reports.tsx`; `views/types.ts` (tipo `Page`). Primeiro acesso: `welcome.tsx`. `/login/` e `/demo/` em `src/app/`.
-- **Arquivo grande:** `app.tsx` (~1.230 linhas). Grep: `const navigation` (destinos; `mobilePrimary` define a barra do celular, o resto vai para "Mais"), `className="topbar"` (barra única: título, mês, avisos, ações), `pageAction` (botão principal por tela), `backupAge` (status de backup no menu), `page === "`, `const save`, `loadTransactions`, `loadInvoice`, `Preferências` (tipos de recorrentes ficam ali).
+- **Ir direto para:** `src/components/app.tsx`; telas em `views/dashboard.tsx` (Início), `transactions.tsx`, `recurrences.tsx` (aba Assinaturas; a aba Cartões usa `cards.tsx`, abas em `app.tsx` por `recurrenceTab`), `cards.tsx`, `invoice.tsx` (detalhe por cartão/mês), `reports.tsx`; `views/types.ts` (tipo `Page`). Primeiro acesso: `welcome.tsx`. `/login/` e `/demo/` em `src/app/`.
+- **Arquivo grande:** `app.tsx` (~1.350 linhas). Grep: `const navigation` (destinos; `mobilePrimary` define a barra do celular, o resto vai para "Mais"), `className="topbar"` (barra grande: título, mês, avisos, ações; `topbar-mini` é a barra fina que aparece ao rolar, via IntersectionObserver), `pageAction` (botão principal por tela), `backupAge` (status de backup no menu), `page === "`, `const save`, `loadTransactions`, `loadInvoice`, `Preferências` (tipos de recorrentes ficam ali).
 - **Não precisa ler:** `src/app/error.tsx`, `loading.tsx`, `next-env.d.ts`.
 
 ## Formulários (lançamento, cartão, recorrente, tipo, conta, orçamento)
-- **Ir direto para:** `src/components/forms.tsx` → `TransactionForm` (~158) e `EntityForm` (~554, ramo por `editor.type`); `CardPicker`/`RecurrenceTypePicker` criam apelido/tipo sem perder o rascunho.
-- **Testes:** `tests/e2e/flows.spec.ts`, `tests/e2e/recurrences.spec.ts`.
+- **Ir direto para:** `src/components/forms.tsx` → `TransactionForm` (~167; frase rápida via `src/lib/quick-entry.ts`, `saveAnother` para "Salvar e lançar outro") e `EntityForm` (~742, ramo por `editor.type`); `CardPicker`/`RecurrenceTypePicker` criam apelido/tipo sem perder o rascunho.
+- **Testes:** `tests/quick-entry.test.ts` (frase → campos), `tests/e2e/flows.spec.ts`, `tests/e2e/recurrences.spec.ts`.
 - **Cuidados:** a validação real está em `src/lib/schemas.ts` (`mutationSchema`); o formulário só monta a mutação. Campo novo costuma exigir `types.ts` + `schemas.ts` + `records.ts` + `engine.ts` + backup.
-- **Arquivo grande:** `forms.tsx` (~920 linhas); busque `editor.type ===`.
+- **Arquivo grande:** `forms.tsx` (~1.100 linhas); busque `editor.type ===`.
 
 ## Regras financeiras (dinheiro, datas, parcelas, recorrências, indicadores)
 - **Ir direto para:** `docs/context/DOMAIN_RULES.md`, depois `src/lib/finance.ts` (dinheiro, calendário America/Sao_Paulo, `splitInstallments`, `buildSnapshot`) e `src/lib/engine.ts` (`applyMutation`, `generateDue`).
@@ -64,6 +64,7 @@ App de página única: `src/app/page.tsx` → `src/components/local-app.tsx` (ab
 | `src/components/local-app.tsx` | Abre LocalStore e monta o app |
 | `src/components/backups.tsx` | Backup JSON/Drive e restauração |
 | `src/lib/finance.ts` | Dinheiro, datas, parcelas, snapshot |
+| `src/lib/quick-entry.ts` | Frase de lançamento rápido → campos |
 | `src/lib/engine.ts` | Mutações e geração de recorrências |
 | `src/lib/local-store.ts` | IndexedDB, transações, revisão |
 | `src/lib/schemas.ts` / `records.ts` | Validação por entidade / do conjunto |
