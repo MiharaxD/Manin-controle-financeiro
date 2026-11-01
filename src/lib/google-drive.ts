@@ -162,7 +162,8 @@ export class GoogleDrive {
   ): Promise<Response> {
     let response: Response;
     try {
-      response = await this.request(url, {
+      // Native fetch throws "Illegal invocation" unless called on the global object.
+      response = await this.request.call(globalThis, url, {
         ...options,
         cache: "no-store",
         credentials: "omit",

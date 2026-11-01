@@ -83,6 +83,22 @@ test("OAuth usa apenas drive.appdata; conectar confirma email e não envia backu
     driver.disconnect();
   }
 });
+test("fetch nativo recebido do navegador é chamado sem perder o this", async () => {
+  oauth();
+  const request = function (this: unknown) {
+    if (this !== globalThis)
+      throw new TypeError("Failed to execute 'fetch': Illegal invocation");
+    return Promise.resolve(
+      json({ user: { emailAddress: "local@example.com" } }),
+    );
+  } as typeof fetch;
+  const driver = new GoogleDrive("public-client", request);
+  try {
+    assert.equal(await driver.connect(), "local@example.com");
+  } finally {
+    driver.disconnect();
+  }
+});
 test("autorização negada ou sem escopo não gera conexão falsa", async () => {
   for (const option of [{ error: true }, { granted: false }]) {
     oauth(option);

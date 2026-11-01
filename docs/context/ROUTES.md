@@ -37,7 +37,7 @@ App de página única: `src/app/page.tsx` → `src/components/local-app.tsx` (ab
 ## Backup JSON e Google Drive
 - **Ir direto para:** `src/lib/backup.ts` (v3, lê v1/v2), `src/components/backups.tsx` (UI e confirmação), `src/lib/google-drive.ts` (GIS, `drive.appdata`), `src/lib/export.ts` (CSV).
 - **Testes:** `tests/local-store.test.ts` (backup/restauração), `tests/google-drive.test.ts` (respostas controladas, sem conta real).
-- **Cuidados:** restauração substitui tudo após confirmação e revisão esperada; token só em memória; nunca alegar envio sem confirmação da API.
+- **Cuidados:** restauração substitui tudo após confirmação e revisão esperada; token só em memória; nunca alegar envio sem confirmação da API. O `fetch` injetado em `GoogleDrive` é chamado com `this = globalThis` (o nativo falha com "Illegal invocation"); mocks em arrow function não pegam isso.
 
 ## PWA / offline
 - **Ir direto para:** `public/sw.js`, `scripts/create-offline-manifest.mjs`, `src/components/pwa.tsx`, `src/app/manifest.ts`, `public/offline.html`.
