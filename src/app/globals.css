@@ -3676,6 +3676,10 @@ main > .form-error {
     display: flex;
     order: 1;
   }
+  /* Most phones wrap the actions to the title row, so the symbol has room. */
+  .mobile-brand .logo.compact {
+    height: 48px;
+  }
   .topbar .month-navigation {
     order: 2;
     gap: 8px;
@@ -4166,6 +4170,12 @@ main > .form-error {
   }
   .auth-art h1 {
     font-size: 2.5rem;
+  }
+}
+/* Only here do brand, month and actions share one line; keep the symbol small. */
+@media (min-width: 359px) and (max-width: 380px) {
+  .mobile-brand .logo.compact {
+    height: 28px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
