@@ -12,11 +12,10 @@
 1. Validar com conta Google real: autorização, envio e restauração pelo Drive (depende da pessoa; nunca simular).
 2. Validar instalação, armazenamento, teclado e offline no Safari de um iPhone físico.
 3. Se ainda houver dados no Supabase antigo, exportar (`docs/migration-export.sql`) e conferir a restauração local antes de desligá-lo.
-4. Depois: atualizar TypeScript/ESLint juntos quando os plugins do Next.js suportarem.
+4. `pnpm audit` ainda aponta `zod` < 4.6.6 (alta) e `minimatch` < 11.0.1 (moderada, via ESLint).
+5. Depois: atualizar TypeScript/ESLint juntos quando os plugins do Next.js suportarem.
 
 ## Limitações conhecidas
-- Next.js 16.4.0 tem vulnerabilidade conhecida; em `next dev` o selo de segurança do Next fica sobre a barra inferior e quebra os e2e/`test:visual` no perfil iPhone (desktop e offline passam). Atualizar exige pedido explícito e manter TypeScript/ESLint juntos.
-- Nesta máquina o Playwright não tem o Chromium baixado; os testes rodaram com `channel: "msedge"`.
 - O teste "backup completo preserva IDs…" (`tests/local-store.test.ts`) depende da data atual: quando o dia passa das cobranças da demonstração, `generateDue` cria ocorrências e a comparação falha.
 - Exportar CSV não conta como backup no status; só JSON e Drive.
 - Dados presos à origem + navegador + dispositivo; limpeza do site, navegação privada ou troca de dispositivo perde tudo sem backup.
