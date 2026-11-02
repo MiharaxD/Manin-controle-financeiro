@@ -773,7 +773,7 @@ small,
   padding-top: 8px;
   opacity: 0;
   visibility: hidden;
-  transform: translate(-50%, -6px) rotate(2deg);
+  transform: translate(calc(-50% + var(--shift, 0px)), -6px) rotate(2deg);
   transition:
     opacity var(--motion),
     transform var(--motion) var(--ease-snap),
@@ -783,7 +783,7 @@ small,
 .music-control:focus-within .music-volume {
   opacity: 1;
   visibility: visible;
-  transform: translate(-50%, 0) rotate(-3deg);
+  transform: translate(calc(-50% + var(--shift, 0px)), 0) rotate(-3deg);
 }
 .music-volume-panel {
   position: relative;

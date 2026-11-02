@@ -43,6 +43,7 @@ function save(key: string, value: string) {
 
 export function MusicToggle() {
   const audio = useRef<HTMLAudioElement>(null);
+  const popover = useRef<HTMLDivElement>(null);
   const on = useSyncExternalStore(subscribe, isOn, () => true);
   const volume = useSyncExternalStore(
     subscribe,
@@ -86,10 +87,30 @@ export function MusicToggle() {
     if (on && value === 0) save(KEY, "off");
   }
 
+  // Mantém o painel dentro da tela quando o botão fica perto de uma borda.
+  function fitPanel() {
+    const el = popover.current;
+    if (!el) return;
+    const margin = 8;
+    const shadow = 5;
+    const shift = parseFloat(el.style.getPropertyValue("--shift")) || 0;
+    const rect = el.getBoundingClientRect();
+    const left = rect.left - shift;
+    const right = rect.right - shift + shadow;
+    const max = document.documentElement.clientWidth - margin;
+    const next =
+      left < margin ? margin - left : right > max ? max - right : 0;
+    el.style.setProperty("--shift", `${Math.round(next)}px`);
+  }
+
   const level = on ? volume : 0;
 
   return (
-    <div className="music-control">
+    <div
+      className="music-control"
+      onPointerEnter={fitPanel}
+      onFocus={fitPanel}
+    >
       <audio
         ref={audio}
         src="/audio/beneath-the-mask.mp3"
@@ -104,7 +125,7 @@ export function MusicToggle() {
       >
         {on ? <Volume2 size={19} /> : <VolumeX size={19} />}
       </button>
-      <div className="music-volume">
+      <div className="music-volume" ref={popover}>
         <div
           className="music-volume-panel"
           style={{ "--vol": level } as CSSProperties}
