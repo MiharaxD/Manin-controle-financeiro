@@ -102,33 +102,30 @@ export function Recurrences({
                   className="transaction-text"
                   onClick={() => open({ type: "recurrence", value: { ...r } })}
                 >
-                  <strong>
-                    {r.name}{" "}
-                    <span className="badge">
-                      {s.recurrence_types.find((t) => t.id === r.type_id)?.name}
-                    </span>{" "}
-                    {r.status !== "active" && (
-                      <span className="badge">
-                        {r.status === "paused" ? "Pausada" : "Cancelada"}
-                      </span>
-                    )}
-                  </strong>
+                  <strong>{r.name}</strong>
                   <span>
-                    {methods[r.payment_method]} ·{" "}
-                    {r.card_id
-                      ? s.cards.find((c) => c.id === r.card_id)?.name
-                      : s.accounts.find((a) => a.id === r.account_id)
-                          ?.name}{" "}
+                    {r.status === "active" ? (
+                      `Próxima: ${formatDate(r.next_date)}`
+                    ) : (
+                      <>
+                        <span className="badge">
+                          {r.status === "paused" ? "Pausada" : "Cancelada"}
+                        </span>{" "}
+                        Sem geração de cobranças
+                      </>
+                    )}{" "}
+                    ·{" "}
+                    {s.recurrence_types.find((t) => t.id === r.type_id)?.name}{" "}
                     ·{" "}
                     {r.interval_months === 1
                       ? "Mensal"
                       : r.interval_months === 12
                         ? "Anual"
                         : `A cada ${r.interval_months} meses`}{" "}
-                    ·{" "}
-                    {r.status === "active"
-                      ? `Próxima: ${formatDate(r.next_date)}`
-                      : "Sem geração de cobranças"}
+                    · {methods[r.payment_method]} ·{" "}
+                    {r.card_id
+                      ? s.cards.find((c) => c.id === r.card_id)?.name
+                      : s.accounts.find((a) => a.id === r.account_id)?.name}
                   </span>
                 </button>
                 <strong>{money(r.amount_cents)}</strong>

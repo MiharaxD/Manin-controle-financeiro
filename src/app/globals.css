@@ -722,6 +722,12 @@ small,
   min-width: 9ch;
   text-align: center;
 }
+.topbar-mini .icon-button {
+  color: #fff;
+}
+.topbar-mini .icon-button:hover:not(:disabled) {
+  color: var(--ink);
+}
 @keyframes mini-in {
   from {
     transform: translateY(-100%);
@@ -1741,6 +1747,9 @@ small,
 }
 .transaction-text .badge {
   margin-left: 5px;
+}
+.transaction-text > span > .badge:first-child {
+  margin-left: 0;
 }
 .separator {
   padding: 0 5px;
@@ -3608,8 +3617,28 @@ main > .form-error {
   }
 }
 @media (max-width: 760px) {
+  /* Phones keep the month at hand; the FAB covers adding. */
   .topbar-mini {
+    gap: 8px;
+    padding: calc(4px + env(safe-area-inset-top)) 8px 4px 16px;
+  }
+  .topbar-mini > .button {
     display: none;
+  }
+  .topbar-mini-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1.125rem;
+  }
+  .topbar-mini-month {
+    gap: 0;
+    font-size: 1.0625rem;
+  }
+  .topbar-mini-month span {
+    min-width: 0;
+    white-space: nowrap;
   }
   :root {
     --sidebar-w: 0px;
@@ -4032,7 +4061,15 @@ main > .form-error {
     width: 32px;
     height: 32px;
   }
-  .transaction-text > :is(strong, span) {
+  /* The name may take two lines; the details keep one. */
+  .transaction-text > strong {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: normal;
+  }
+  .transaction-text > span {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -4073,17 +4110,26 @@ main > .form-error {
 @media (max-width: 380px) {
   .topbar {
     padding-inline: 12px;
+    column-gap: 4px;
   }
   .app-body main {
     padding-inline: 12px;
   }
+  /* Smaller plates, but the tap area stays 40×44 by closing the gaps. */
   .topbar .month-navigation .icon-button,
   .topbar-actions .icon-button {
-    width: 34px;
-    min-width: 34px;
-    height: 36px;
+    width: 40px;
+    min-width: 40px;
+    height: 44px;
   }
-  .topbar .month-navigation,
+  .topbar .month-navigation .icon-button::before,
+  .topbar-actions .icon-button::before {
+    inset: 4px 3px;
+  }
+  .topbar-actions,
+  .topbar .month-navigation {
+    gap: 0;
+  }
   .month-stamp {
     gap: 4px;
   }
@@ -4094,12 +4140,13 @@ main > .form-error {
     font-size: 0.8125rem;
   }
   .mobile-nav button:not(.fab) {
-    font-size: 0.6875rem;
+    font-size: clamp(0.6875rem, 3.4vw, 0.75rem);
     letter-spacing: 0;
     overflow-wrap: normal;
   }
+  /* "Recorrentes" must fit on one line at 320px. */
   .page-title {
-    font-size: 2.25rem;
+    font-size: min(2.25rem, 9.4vw);
   }
   .hero-amount {
     font-size: 3rem;
