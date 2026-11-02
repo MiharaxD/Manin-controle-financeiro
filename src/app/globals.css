@@ -305,16 +305,20 @@ small,
 :root[data-theme="dark"] :is(.l2, .l5) {
   box-shadow: 0 0 0 2px var(--red);
 }
+/* The SVG art is already tilted; no extra rotation here. */
 .logo {
-  display: inline-flex;
+  display: block;
   align-self: flex-start;
-  font-size: 2.75rem;
-  transform: rotate(-6deg);
-  transform-origin: left bottom;
+  width: min(100%, 240px);
+}
+.logo img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 .logo.compact {
-  font-size: 1.75rem;
-  transform: rotate(-4deg);
+  width: auto;
+  height: 28px;
 }
 
 /* Buttons: clipped plates drawn on a pseudo layer so focus rings stay whole. */
@@ -905,13 +909,9 @@ small,
   transform: rotate(-4deg);
   transform-origin: left bottom;
 }
-.page-title .rn b,
-.sidebar .logo .rn b {
+.page-title .rn b {
   animation: letter-in 0.3s calc(0.1s + var(--i, 0) * 0.035s) var(--ease-snap)
     backwards;
-}
-.sidebar .logo .rn b {
-  animation-delay: calc(0.22s + var(--i, 0) * 0.04s);
 }
 .month-navigation {
   order: 4;
@@ -3572,9 +3572,8 @@ main > .form-error {
   }
   .sidebar .logo {
     align-self: center;
-    font-size: 2.25rem;
+    width: 64px;
   }
-  .sidebar .logo .rn b:not(:first-child),
   .sidebar-status,
   .sidebar nav .nav-label,
   .nav-cursor {

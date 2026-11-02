@@ -72,10 +72,27 @@ export function Burst() {
     </svg>
   );
 }
-export function Logo({ compact = false }: { compact?: boolean }) {
+// Art lives in docs/brand (make_logo.py copies it to public/brand).
+const wordmark = { src: "/brand/manin-logo.svg", width: 707, height: 405 };
+const symbol = { src: "/brand/manin-simbolo.svg", width: 232, height: 217 };
+/* eslint-disable @next/next/no-img-element -- static SVGs, no optimizer in `output: export` */
+export function Logo({
+  compact = false,
+  collapsible = false,
+}: {
+  compact?: boolean;
+  // Swaps to the symbol where the sidebar narrows (≤960px).
+  collapsible?: boolean;
+}) {
+  if (compact)
+    return <img className="logo compact" alt="Manin" {...symbol} />;
   return (
-    <span className={`logo ${compact ? "compact" : ""}`}>
-      <Ransom text={compact ? "M" : "Manin"} />
-    </span>
+    <picture className="logo">
+      {collapsible && (
+        <source media="(max-width: 960px)" srcSet={symbol.src} />
+      )}
+      <img alt="Manin" {...wordmark} />
+    </picture>
   );
 }
+/* eslint-enable @next/next/no-img-element */

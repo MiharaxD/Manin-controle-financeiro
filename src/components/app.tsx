@@ -473,7 +473,7 @@ export function FinanceApp({
       <div className="shell-sliver" aria-hidden="true" />
       <div className="shell-wedge" aria-hidden="true" />
       <aside className="sidebar">
-        <Logo />
+        <Logo collapsible />
         <nav aria-label="Navegação principal">
           {navigation.map((n) => (
             <button
