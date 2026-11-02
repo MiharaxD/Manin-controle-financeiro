@@ -1,13 +1,25 @@
 import type { Metadata, Viewport } from "next";
 import { Pwa } from "@/components/pwa";
 import "./globals.css";
+// Bump when the icons change: browsers (Safari above all) cache icons by URL.
+const iconVersion = 2;
 export const metadata: Metadata = {
   title: "Manin — seu dinheiro, com clareza",
   description:
     "Seu controle financeiro pessoal. Compras, cartões e assinaturas em um só lugar.",
   applicationName: "Manin",
   appleWebApp: { capable: true, title: "Manin", statusBarStyle: "default" },
-  icons: { icon: "/favicon.svg", apple: "/icons/apple-touch-icon.png" },
+  icons: {
+    icon: [
+      { url: `/favicon.svg?v=${iconVersion}`, type: "image/svg+xml" },
+      {
+        url: `/icons/favicon-96.png?v=${iconVersion}`,
+        sizes: "96x96",
+        type: "image/png",
+      },
+    ],
+    apple: `/icons/apple-touch-icon.png?v=${iconVersion}`,
+  },
 };
 export const viewport: Viewport = {
   width: "device-width",

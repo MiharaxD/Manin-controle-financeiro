@@ -122,6 +122,7 @@ test("PWA cria, edita, consulta, exclui e restaura backup offline com servidor d
     await page.getByRole("button", { name: "Desfazer", exact: true }).click();
     await expect(page.locator(".transaction-row")).toHaveCount(1);
     await nav(page, "Recorrentes");
+    await page.getByRole("tab", { name: "Cartões", exact: true }).click();
     await page.getByRole("button", { name: "Novo apelido" }).click();
     dialog = page.getByRole("dialog");
     await dialog
@@ -184,6 +185,9 @@ test("PWA cria, edita, consulta, exclui e restaura backup offline com servidor d
     ).toBeVisible();
     await dialog.getByRole("button", { name: "Fechar", exact: true }).click();
     await nav(page, "Recorrentes");
+    await page
+      .getByRole("tab", { name: "Assinaturas e contas", exact: true })
+      .click();
     await page
       .getByRole("button", { name: "Nova recorrente", exact: true })
       .click();
