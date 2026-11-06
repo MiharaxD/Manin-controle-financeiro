@@ -77,6 +77,32 @@ export function MusicToggle() {
     };
   }, [on]);
 
+  // iOS segue tocando em segundo plano: pausa ao sair do app e retoma ao voltar.
+  useEffect(() => {
+    const el = audio.current;
+    if (!el) return;
+    let paused = false;
+    const away = () => {
+      if (!el.paused) {
+        paused = true;
+        el.pause();
+      }
+    };
+    const back = () => {
+      if (paused && isOn()) void el.play().catch(() => {});
+      paused = false;
+    };
+    const onVisibility = () => (document.hidden ? away() : back());
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", away);
+    window.addEventListener("pageshow", back);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", away);
+      window.removeEventListener("pageshow", back);
+    };
+  }, []);
+
   function toggle() {
     save(KEY, on ? "off" : "on");
   }

@@ -3978,11 +3978,13 @@ main > .form-error {
   .dialog-content,
   .dialog-content.wide {
     top: auto;
-    bottom: 0;
+    bottom: var(--vv-bottom, 0px);
     left: 0;
     transform: none;
     width: 100%;
-    max-height: calc(100dvh - env(safe-area-inset-top) - 15px);
+    max-height: calc(
+      var(--vv-height, 100dvh) - env(safe-area-inset-top) - 15px
+    );
     padding: 20px 18px calc(24px + env(safe-area-inset-bottom));
     border-width: 3px 0 0;
     box-shadow: 0 -8px 0 var(--ink);
